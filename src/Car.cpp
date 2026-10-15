@@ -11,6 +11,7 @@
 #include "Terrain.hpp"
 #include "World.hpp"
 #include "raymath.h"
+#include "rlgl.h"
 #include <cmath>
 
 namespace car {
@@ -491,6 +492,40 @@ void Car::Draw() const
     if (!loaded_) return;
 
     const cardb::CarSpec &spec = cardb::Roster()[carIndex_];
+
+    // Contact shadow: the car otherwise reads as floating since nothing
+    // darkens the ground beneath it. A soft alpha-gradient fan (immediate
+    // mode, same technique SkidMarks.cpp already uses) draped onto the
+    // ground normal, drawn before the body so it sits underneath.
+    {
+        const int SEGMENTS = 14;
+        const float radius = spec.design.length * 0.42f;
+        Vector3 up = groundNormal_;
+        Vector3 fwd = Vector3{ sinf(heading_), 0.0f, cosf(heading_) };
+        Vector3 right = Vector3Normalize(Vector3CrossProduct(up, fwd));
+        fwd = Vector3Normalize(Vector3CrossProduct(right, up));
+        Vector3 center = Vector3Add(position_, Vector3Scale(up, 0.03f)); // just above the ground, avoids z-fighting
+
+        rlDisableBackfaceCulling();
+        rlBegin(RL_TRIANGLES);
+        for (int i = 0; i < SEGMENTS; i++) {
+            float a0 = (float)i / SEGMENTS * 2.0f * PI;
+            float a1 = (float)(i + 1) / SEGMENTS * 2.0f * PI;
+            // Squashed slightly along the car's width so the blob reads as
+            // an oval under the body rather than a circle floating free of it.
+            Vector3 p0 = Vector3Add(center, Vector3Add(Vector3Scale(fwd, cosf(a0) * radius),
+                                                        Vector3Scale(right, sinf(a0) * radius * 0.7f)));
+            Vector3 p1 = Vector3Add(center, Vector3Add(Vector3Scale(fwd, cosf(a1) * radius),
+                                                        Vector3Scale(right, sinf(a1) * radius * 0.7f)));
+            rlColor4ub(10, 10, 12, 90);
+            rlVertex3f(center.x, center.y, center.z);
+            rlColor4ub(10, 10, 12, 0);
+            rlVertex3f(p0.x, p0.y, p0.z);
+            rlVertex3f(p1.x, p1.y, p1.z);
+        }
+        rlEnd();
+        rlEnableBackfaceCulling();
+    }
 
     Matrix orientation = BuildOrientation();
     Matrix place = MatrixMultiply(orientation, MatrixTranslate(position_.x, position_.y, position_.z));

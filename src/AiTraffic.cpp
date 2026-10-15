@@ -3,6 +3,7 @@
 #include "CarDatabase.hpp"
 #include "Road.hpp"
 #include "raymath.h"
+#include "rlgl.h"
 #include <cmath>
 #include <cstdlib>
 
@@ -146,6 +147,35 @@ void AiTraffic::Draw() const
     if (!loaded_) return;
 
     for (const Car &c : cars_) {
+        // Same cheap contact-shadow fan as the player car (Car::Draw) --
+        // the road is near-flat under traffic, so world-up is close enough
+        // without needing a terrain normal lookup here.
+        {
+            const int SEGMENTS = 10;
+            const float radius = c.radius * 0.85f;
+            Vector3 fwd = Vector3{ sinf(c.heading), 0.0f, cosf(c.heading) };
+            Vector3 right = Vector3{ fwd.z, 0.0f, -fwd.x };
+            Vector3 center = Vector3Add(c.position, Vector3{ 0.0f, 0.03f, 0.0f });
+
+            rlDisableBackfaceCulling();
+            rlBegin(RL_TRIANGLES);
+            for (int i = 0; i < SEGMENTS; i++) {
+                float a0 = (float)i / SEGMENTS * 2.0f * PI;
+                float a1 = (float)(i + 1) / SEGMENTS * 2.0f * PI;
+                Vector3 p0 = Vector3Add(center, Vector3Add(Vector3Scale(fwd, cosf(a0) * radius),
+                                                            Vector3Scale(right, sinf(a0) * radius * 0.7f)));
+                Vector3 p1 = Vector3Add(center, Vector3Add(Vector3Scale(fwd, cosf(a1) * radius),
+                                                            Vector3Scale(right, sinf(a1) * radius * 0.7f)));
+                rlColor4ub(10, 10, 12, 80);
+                rlVertex3f(center.x, center.y, center.z);
+                rlColor4ub(10, 10, 12, 0);
+                rlVertex3f(p0.x, p0.y, p0.z);
+                rlVertex3f(p1.x, p1.y, p1.z);
+            }
+            rlEnd();
+            rlEnableBackfaceCulling();
+        }
+
         Matrix scale = MatrixScale(c.bodyScale, c.bodyScale, c.bodyScale);
         Matrix rotate = MatrixRotateY(c.heading);
         Matrix translate = MatrixTranslate(c.position.x, c.position.y, c.position.z);
