@@ -35,6 +35,7 @@ void ResetCar()
 {
     Options d;
     g_options.useMph = d.useMph;
+    g_options.ultraGraphics = d.ultraGraphics;
 }
 
 void Load()
@@ -58,6 +59,7 @@ void Load()
             else if (!strcmp(name, "manual"))      g_options.manual = value != 0.0f;
             else if (!strcmp(name, "showGearHud")) g_options.showGearHud = value != 0.0f;
             else if (!strcmp(name, "useMph"))      g_options.useMph = value != 0.0f;
+            else if (!strcmp(name, "ultraGraphics")) g_options.ultraGraphics = value != 0.0f;
         }
         const char *nl = strchr(p, '\n');
         if (!nl) break;
@@ -68,12 +70,13 @@ void Load()
 
 void Save()
 {
-    char buffer[384];
+    char buffer[448];
     snprintf(buffer, sizeof(buffer),
              "soundOn %d\nmaster %.2f\nengine %.2f\neffects %.2f\nshiftSound %d\n"
-             "manual %d\nshowGearHud %d\nuseMph %d\n",
+             "manual %d\nshowGearHud %d\nuseMph %d\nultraGraphics %d\n",
              g_options.soundOn, g_options.master, g_options.engine, g_options.effects,
-             g_options.shiftSound, g_options.manual, g_options.showGearHud, g_options.useMph);
+             g_options.shiftSound, g_options.manual, g_options.showGearHud, g_options.useMph,
+             g_options.ultraGraphics);
     SaveFileText(config::OPTIONS_FILE, buffer);
 }
 

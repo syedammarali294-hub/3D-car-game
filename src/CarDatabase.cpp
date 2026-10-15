@@ -276,6 +276,32 @@ const std::vector<CarSpec> &Roster()
         { "Meridian Apex", "Top-speed hypercar, ~200 km/h", MakeTopSpeedHyper(), "assets/models/car/race-future.obj", 55.6f, 19.0f, 30.0f, 2.1f, 8 },
         { "Northgate Pioneer", "Tough all-terrain utility", MakeUtility(), "assets/models/car/suv.obj", 30.0f, 11.0f, 22.0f, 1.6f, 5 },
         { "Comet Streak", "Tiny, nimble sprint racer", MakeSprintRacer(), "assets/models/car/hatchback-sports.obj", 35.0f, 20.0f, 28.0f, 2.9f, 6 },
+
+        // Downloaded, licensed models -- real meshes, not procedural. Each
+        // decimated from a 300k-650k triangle Sketchfab "hero asset" down to
+        // something game-sized (see TODO.md); gated behind Ultra Graphics
+        // in Settings > Car since even decimated, they're still 5-25x the
+        // triangle cost of every other car here. Design fields below are
+        // stats only (wheelbase/track/wheel radius for drift marks and
+        // camera, paint as the DrawModel tint) -- the mesh itself is real,
+        // not generated from them.
+        { "BMW M3 E30 (Modified)", "Licensed model - CC BY 4.0",
+          carbody::Design{ 4.36f, 1.78f, 0,0,0,0,0,0,0, 0,0,0,0,0,0, 2.56f, 1.48f, 0.335f, 0.28f, 0,0,
+                  WHITE, Color{30,30,34,255}, Color{20,24,30,200} },
+          "assets/models/car/bmw_m3_e30.obj", 52.0f, 19.0f, 30.0f, 2.2f, 7,
+          true, "\"BMW Modified Racing Car | BMW M3 E30\" (https://skfb.ly/pFIqo) by DevPoly3D, CC BY 4.0." },
+        { "BMW M3 Competition", "Licensed model - CC BY-NC-SA 4.0",
+          carbody::Design{ 4.99f, 2.15f, 0,0,0,0,0,0,0, 0,0,0,0,0,0, 2.85f, 1.65f, 0.37f, 0.30f, 0,0,
+                  WHITE, Color{30,30,34,255}, Color{20,24,30,200} },
+          "assets/models/car/bmw_m3_competition.obj", 58.0f, 20.0f, 32.0f, 2.0f, 8,
+          true, "\"BMW M3 Competition\" (https://skfb.ly/pMrWu) by VTX, CC BY-NC-SA 4.0 -- NonCommercial." },
+        { "BMW S1000RR", "Licensed model (bike) - CC BY-NC-SA 4.0",
+          carbody::Design{ 2.03f, 0.78f, 0,0,0,0,0,0,0, 0,0,0,0,0,0, 1.44f, 0.70f, 0.30f, 0.17f, 0,0,
+                  Color{40,120,210,255}, Color{20,20,22,255}, Color{16,20,26,200} },
+          "assets/models/car/bmw_s1000rr.obj", 62.0f, 24.0f, 34.0f, 3.2f, 6,
+          true, "\"BMW S1000 RR\" (https://skfb.ly/pMyBS) by VTX, CC BY-NC-SA 4.0 -- NonCommercial. "
+                "Drives on the same 4-wheel-car physics as everything else here -- no real motorcycle "
+                "lean/balance model, it just looks like a bike." },
     };
     return roster;
 }

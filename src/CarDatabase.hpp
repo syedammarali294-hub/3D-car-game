@@ -25,6 +25,17 @@ struct CarSpec {
     // Forward gears (reverse is separate): 5 for everyday cars, 7 for sports
     // cars, 8 for hypercars. See Gearbox.hpp.
     int gears;
+
+    // True for the handful of downloaded, licensed, high-poly models
+    // (tens of thousands of triangles vs ~2-3k for everything else) --
+    // gated behind Settings > Car > Ultra Graphics rather than always
+    // loaded, since this project's stated target is low-end hardware.
+    // False (the default) for every procedural and Kenney-kit car.
+    bool ultraOnly = false;
+
+    // Attribution shown in Credits for an ultraOnly car. Empty for
+    // everything else -- only a downloaded asset needs one.
+    const char *credit = "";
 };
 
 // Three original silhouettes inspired by the shapes of well-known sports

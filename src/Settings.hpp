@@ -19,6 +19,15 @@ struct Options {
 
     // Car / display
     bool useMph = false;
+
+    // Graphics quality. Low is the only tier the project's stated target
+    // (Intel HD 4000 class, see TODO.md) is sized for. Ultra exists
+    // specifically to gate the handful of downloaded, high-poly licensed
+    // car models (tens of thousands of triangles each, vs ~2-3k for every
+    // procedural/Kenney car) behind an explicit opt-in, rather than having
+    // them always loaded and quietly tanking frame rate on the low-end
+    // hardware this project otherwise targets.
+    bool ultraGraphics = false;
 };
 
 Options &Get();

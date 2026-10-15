@@ -277,15 +277,30 @@ void Menu::TickGarage(int w, int h)
                  (int)(previewY + previewH - 22.0f), 14, Fade(RAYWHITE, 0.6f));
     }
 
+    // Ultra-only cars (the downloaded, high-poly licensed models) are
+    // skipped while cycling unless Ultra Graphics is on in Settings > Car --
+    // see CarSpec::ultraOnly. If Ultra was just turned off while one of
+    // them was selected, this also walks forward off it immediately rather
+    // than leaving an unreachable car loaded.
+    auto carAllowed = [&](int idx) {
+        return settings::Get().ultraGraphics || !roster[idx].ultraOnly;
+    };
+    if (!carAllowed(selectedCar_)) {
+        for (int i = 0; i < rosterSize; i++) {
+            int idx = (selectedCar_ + i) % rosterSize;
+            if (carAllowed(idx)) { selectedCar_ = idx; break; }
+        }
+    }
+
     // Prev/next arrows flank the preview and cycle with wraparound.
     Rectangle prevBtn = Rectangle{ previewX - 76.0f, previewY + previewH * 0.5f - 28.0f, 56.0f, 56.0f };
     Rectangle nextBtn = Rectangle{ previewX + previewW + 20.0f, previewY + previewH * 0.5f - 28.0f, 56.0f, 56.0f };
     if (ButtonAt(prevBtn, "<", 30)) {
-        selectedCar_ = (selectedCar_ - 1 + rosterSize) % rosterSize;
+        do { selectedCar_ = (selectedCar_ - 1 + rosterSize) % rosterSize; } while (!carAllowed(selectedCar_));
         selectedColorIndex_ = 0;
     }
     if (ButtonAt(nextBtn, ">", 30)) {
-        selectedCar_ = (selectedCar_ + 1) % rosterSize;
+        do { selectedCar_ = (selectedCar_ + 1) % rosterSize; } while (!carAllowed(selectedCar_));
         selectedColorIndex_ = 0;
     }
 
@@ -550,6 +565,17 @@ void Menu::SettingsCar(float top, int w)
         worldStyle_ = (terrain::Style)((worldStyle_ + 1) % terrain::STYLE_COUNT);
     }
     DrawText("Applies next time you press Drive.", (int)x, (int)y + 44, 14, Fade(RAYWHITE, 0.55f));
+    y += 78.0f;
+
+    RowLabel("Graphics", x, y);
+    if (ButtonAt(Rectangle{ x + 380.0f, y, 160.0f, 40.0f }, o.ultraGraphics ? "ULTRA" : "LOW", 18)) {
+        o.ultraGraphics = !o.ultraGraphics;
+        optionsDirty_ = true;
+    }
+    DrawText("Ultra unlocks 3 downloaded, high-poly licensed cars in the",
+             (int)x, (int)y + 44, 14, Fade(RAYWHITE, 0.55f));
+    DrawText("Garage -- real meshes, 5-25x the triangle cost of the rest.",
+             (int)x, (int)y + 62, 14, Fade(RAYWHITE, 0.55f));
 }
 
 void Menu::SettingsGear(const input::Input &input, float top, int w)
@@ -610,12 +636,30 @@ void Menu::TickCredits(int w, int h)
         "Built with raylib + a custom procedural mesh pipeline.",
     };
 
-    int y = (int)(h * 0.26f);
+    int y = (int)(h * 0.24f);
     for (const char *line : lines) {
         if (line[0] != '\0') {
             DrawText(line, w / 2 - MeasureText(line, 18) / 2, y, 18, Fade(RAYWHITE, 0.85f));
         }
-        y += 28;
+        y += 26;
+    }
+
+    // Three real, downloaded car models -- decimated and gated behind
+    // Ultra Graphics (Settings > Car), but still shipped as part of the
+    // game, so their exact required attribution goes here, verbatim.
+    y += 6;
+    const char *licensed[] = {
+        "Downloaded models (Ultra Graphics only):",
+        "\"BMW Modified Racing Car | BMW M3 E30\" by DevPoly3D",
+        "skfb.ly/pFIqo - CC BY 4.0",
+        "\"BMW M3 Competition\" by VTX - skfb.ly/pMrWu",
+        "\"BMW S1000 RR\" by VTX - skfb.ly/pMyBS",
+        "Both VTX models: CC BY-NC-SA 4.0 (NonCommercial -- this project",
+        "must stay free/non-commercial for as long as they're included)",
+    };
+    for (const char *line : licensed) {
+        DrawText(line, w / 2 - MeasureText(line, 14) / 2, y, 14, Fade(RAYWHITE, 0.7f));
+        y += 20;
     }
 
     if (ButtonAt(Rectangle{ w * 0.5f - 90.0f, h - 110.0f, 180.0f, 48.0f }, "BACK", 22)) {
