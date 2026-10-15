@@ -2,6 +2,33 @@
 
 Status as of 2026-10-14.
 
+## In progress — fixing shattered Ultra Graphics car models
+
+The 3 downloaded models (BMW M3 E30, M3 Competition, S1000RR) displayed as
+fragmented/shattered shards in-game, not solid car bodies. Root cause: the
+source FBX/glb is 58-143 separate mesh pieces merged with no shared
+vertices between them, then decimated in multiple compounding passes --
+each pass on an already-damaged mesh tore more holes. Measured: raw merged
+mesh had a 23.8% boundary-edge ratio (edges touching only one triangle --
+a healthy closed mesh is near 0%); the shipped shattered version was worse.
+
+Plan (completed):
+- [x] Weld near-coincident vertices across the separate source pieces
+      before decimating -- stitches panel seams into shared topology.
+      Boundary-edge ratio (unwelded -> welded -> after one decimation
+      pass): E30 23.8% -> 2.0% -> 2.7% (25k faces); M3 Competition
+      13.1% -> 3.8% -> 4.2% (79k faces); S1000RR 21.5% -> 2.0% -> 1.5%
+      (22k faces). All three healthy now, not fragmented.
+- [x] One decimation pass per model, not chained/repeated.
+- [x] Redeployed all 3 .obj files, kept the v/vt/vn fix from the earlier
+      crash bug intact.
+- [x] Rebuilt and re-ran the automated roster self-test -- all 16 cars
+      (including the 3 Ultra models) load and draw without crashing.
+- [x] Committed and pushed.
+- [ ] Still owed, deferred from earlier: water/nature/fence improvements
+      ("make it crashable but not this bad" was about the car models, not
+      these -- separate, not started this pass).
+
 **Target hardware is unchanged: low-end (Intel HD 4000 class.)** The renderer
 stays flat-shaded with a hard draw-distance cull.
 
