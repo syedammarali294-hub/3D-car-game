@@ -1,0 +1,46 @@
+1.5.0
+
+Build date: 2026-10-15
+
+## Changelog
+
+### 1.5.0 - 2026-10-15
+- Persistent per-car odometer: lifetime distance driven, saved to upgrades.cfg
+  alongside the upgrade levels, shown in the Garage.
+
+### 1.4.0 - 2026-10-15
+- Fixed: AiTraffic and auto-drive both advanced along the road using a
+  guessed, wrong sample spacing (2.2 units; the real circuit averages ~11.8),
+  making every AI/auto-driven car move several times faster than its speed
+  stat implied. Both now measure the real distance to the next sample.
+- Fixed: drift tyre marks were drawn below the road surface mesh (at
+  terrain height + 0.03 instead of the road's own + 0.14 lift), so they were
+  never visible. Now share the road's real surface height.
+- Added: best-lap ghost replay (Car::DrawGhost), traffic cars shown on the
+  minimap, ambient wind sound layered into the engine audio.
+
+### 1.3.0 - 2026-10-15
+- Added: F toggles auto-drive, following the road directly (same approach
+  as AiTraffic) rather than steering a physics body toward it.
+- Added: visual drift slip (slipAngle_) and tyre-mark decals (SkidMarks).
+- Reworked main menu: PLAY opens a Free Drive / Traffic Mode select screen;
+  How To Play moved into Settings as its own tab.
+
+### 1.2.0 - 2026-10-15
+- Added: per-car upgrade system (Engine/Handling/Nitro, 0-3 levels each,
+  persisted to upgrades.cfg), How To Play screen, 2 more cars (13 total).
+- Fixed: Garage's BACK button was laid out past the bottom of the fixed
+  720px canvas and was never visible, in windowed or fullscreen.
+
+### 1.1.0 - 2026-10-15
+- Added: Traffic Mode (AiTraffic -- AI cars looping the circuit).
+- Fixed: fullscreen (F11) flashed black on every toggle (ToggleFullscreen()
+  does a real display-mode switch). Switched to ToggleBorderlessWindowed()
+  plus a fixed-resolution render target scaled/letterboxed into the real
+  window, so the UI stays correctly laid out at any window size too.
+
+### 1.0.0
+- Baseline: original low-poly open-world driving game. Procedural car
+  bodies and terrain, a full gearbox (auto/manual), NOS boost, drift
+  scoring, lap timing, a 2-lap circuit, Kenney Nature Kit scenery, and a
+  from-scratch engine-note synthesizer.
