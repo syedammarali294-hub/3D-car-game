@@ -27,6 +27,7 @@ public:
 
     int CarCount() const { return (int)cars_.size(); }
     Vector3 CarPosition(int i) const { return cars_[i].position; }
+    bool CarBoosting(int i) const { return cars_[i].boostTimeLeft > 0.0f; }
 
 private:
     struct Car {
@@ -34,11 +35,17 @@ private:
         float bodyScale = 1.0f;
         Color paint = WHITE;
         float progress = 0.0f; // index into road::Centreline(), fractional
-        float speed = 10.0f;   // world units/s along the centreline
+        float speed = 10.0f;   // world units/s along the centreline, cruising (non-boost) pace
         float laneOffset = 0.0f; // sideways from the centre, in Sample::right units
         float radius = 1.0f;   // collision radius, derived from the body length
         Vector3 position{};
         float heading = 0.0f;
+
+        // Nitro: fires periodically rather than never, same idea as the
+        // player's own NOS -- a speed burst, not a permanently higher pace.
+        float boostCooldown = 0.0f; // seconds until this car is allowed to fire again
+        float boostTimeLeft = 0.0f; // seconds remaining in the current burst, 0 = not boosting
+        unsigned int rngState = 1u; // own RNG stream so boost timing isn't synchronised across cars
     };
 
     std::vector<Car> cars_;

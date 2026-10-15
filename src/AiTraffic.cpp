@@ -66,6 +66,9 @@ void AiTraffic::Load(Shader shader, int count)
         c.speed = 8.0f + Frand(seed) * 6.0f; // slower than the player's own top speed on purpose
         c.laneOffset = (i % 2 == 0) ? 3.0f : -3.0f;
 
+        c.rngState = seed ^ (0x9E3779B9u * (unsigned int)(i + 1)); // own stream per car
+        c.boostCooldown = 3.0f + Frand(c.rngState) * 6.0f; // first boost within the first few seconds
+
         cars_.push_back(c);
     }
 
@@ -89,6 +92,24 @@ void AiTraffic::Update(float dt)
     if (n < 2) return;
 
     for (Car &c : cars_) {
+        // Nitro: fires on a per-car random cooldown rather than never.
+        // Burst speed is a flat multiplier on this car's own cruising
+        // speed, same spirit as the player's boost being a bonus on top of
+        // normal accel rather than a separate top speed.
+        if (c.boostTimeLeft > 0.0f) {
+            c.boostTimeLeft -= dt;
+            if (c.boostTimeLeft <= 0.0f) {
+                c.boostTimeLeft = 0.0f;
+                c.boostCooldown = 5.0f + Frand(c.rngState) * 9.0f; // 5-14s until the next one
+            }
+        } else {
+            c.boostCooldown -= dt;
+            if (c.boostCooldown <= 0.0f) {
+                c.boostTimeLeft = 1.5f + Frand(c.rngState) * 1.5f; // 1.5-3s burst
+            }
+        }
+        float effectiveSpeed = c.speed * (c.boostTimeLeft > 0.0f ? 1.5f : 1.0f);
+
         // Advance progress using the REAL distance to the next sample, not
         // a guessed constant -- the circuit's samples average ~11.8 world
         // units apart (checked directly against Road.cpp's control points),
@@ -100,7 +121,7 @@ void AiTraffic::Update(float dt)
         int i1now = (i0now + 1) % n;
         float segLen = Vector3Distance(samples[i0now].position, samples[i1now].position);
         if (segLen < 0.01f) segLen = 0.01f;
-        c.progress += (c.speed * dt) / segLen;
+        c.progress += (effectiveSpeed * dt) / segLen;
         while (c.progress >= (float)n) c.progress -= (float)n;
         while (c.progress < 0.0f) c.progress += (float)n;
 
