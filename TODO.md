@@ -141,9 +141,9 @@ frame. Not started yet:
 
 - [x] Full engine audio (RPM-following pitch, gear-shift clunk), tyre
       squeal, collision thump, ambient wind — all done in earlier sessions.
-- [x] Water splash sound on entering the lake (synthesised, speed-scaled,
-      edge-detected so it fires once per entry). No visual splash/particle
-      effect yet -- just audio.
+- [x] Water splash on entering the lake -- sound (synthesised, speed-
+      scaled) and a matching visual (14 gravity-faded droplet particles),
+      both edge-detected so they fire once per entry.
 
 ## Done (earlier sessions, high level — see git log for detail)
 
