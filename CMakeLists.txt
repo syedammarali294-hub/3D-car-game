@@ -25,6 +25,7 @@ add_executable(CarGame3D
     src/Car.cpp
     src/CarBody.cpp
     src/CarDatabase.cpp
+    src/Console.cpp
     src/Engine.cpp
     src/Fence.cpp
     src/FileAssoc.cpp
@@ -36,6 +37,7 @@ add_executable(CarGame3D
     src/Road.cpp
     src/Settings.cpp
     src/SkidMarks.cpp
+    src/Spectator.cpp
     src/Terrain.cpp
     src/MapFile.cpp
     src/Track.cpp

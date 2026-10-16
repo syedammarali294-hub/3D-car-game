@@ -10,6 +10,7 @@
 #include "Car.hpp"
 #include "CarDatabase.hpp"
 #include "Config.hpp"
+#include "Console.hpp"
 #include "Engine.hpp"
 #include "Fence.hpp"
 #include "Input.hpp"
@@ -17,6 +18,7 @@
 #include "Menu.hpp"
 #include "Road.hpp"
 #include "Settings.hpp"
+#include "Spectator.hpp"
 #include "Terrain.hpp"
 #include "Track.hpp"
 #include "Upgrades.hpp"
@@ -420,6 +422,15 @@ int main(int argc, char **argv)
 
     cam::GameCamera camera;
 
+    // Admin-only: free-fly spectator camera + dev console, same gating as
+    // the minimap teleport/NOS refill/unstick above (see Settings.hpp).
+    // /gamemode spectator and /gamemode drive toggle between this and the
+    // normal car camera; the console itself only opens at all when admin
+    // mode is on.
+    spectator::FlyCam flycam;
+    console::Console devConsole;
+    bool spectating = false;
+
     bool showStats = true;
 
     // First-launch controls hint: shown once, the first time the car is
@@ -602,6 +613,38 @@ int main(int argc, char **argv)
             if (settings::Get().adminMode) {
                 if (IsKeyPressed(KEY_F2)) player.RefillBoost();
                 if (IsKeyPressed(KEY_F3)) player.RespawnNearestRoad();
+                if (IsKeyPressed(KEY_GRAVE)) devConsole.Toggle();
+            } else if (devConsole.IsOpen()) {
+                // adminMode got turned off (e.g. Settings > Car) while the
+                // console was open -- don't leave an inaccessible console
+                // capturing all keyboard input.
+                devConsole.Toggle();
+            }
+            devConsole.Update();
+
+            if (devConsole.HasPendingCommand()) {
+                std::string cmd = devConsole.TakeCommand();
+                if (cmd == "/gamemode spectator" || cmd == "/gamemode spec") {
+                    if (!spectating) {
+                        flycam.Init(Vector3Add(player.GetPosition(), Vector3{ 0.0f, 4.0f, 0.0f }),
+                                    player.GetHeading());
+                        spectating = true;
+                    }
+                    devConsole.Log("Gamemode: spectator");
+                } else if (cmd == "/gamemode drive" || cmd == "/gamemode player" || cmd == "/gamemode survival") {
+                    spectating = false;
+                    devConsole.Log("Gamemode: drive");
+                } else if (cmd == "/respawn") {
+                    player.RespawnNearestRoad();
+                    devConsole.Log("Respawned onto the nearest road point.");
+                } else if (cmd == "/refillnos") {
+                    player.RefillBoost();
+                    devConsole.Log("NOS refilled.");
+                } else if (cmd == "/help") {
+                    devConsole.Log("Commands: /gamemode spectator, /gamemode drive, /respawn, /refillnos, /help");
+                } else {
+                    devConsole.Log("Unknown command: " + cmd + " (try /help)");
+                }
             }
 
             if (hintTimer > 0.0f) {
@@ -614,10 +657,22 @@ int main(int argc, char **argv)
             }
 
             if (trafficLoaded) aiTraffic.Update(dt);
-            player.Update(dt, input, scenery, fences, trafficLoaded ? &aiTraffic : nullptr);
-            camera.Update(player, input, dt);
 
-            {
+            // Console open freezes the world, same as a pause menu would --
+            // typing a command shouldn't also be steering the car. Spectator
+            // mode flies the admin camera instead of updating the car at
+            // all; EngineSound::Update simply isn't called while spectating,
+            // which is all it takes to go silent (see Engine.hpp).
+            if (!devConsole.IsOpen()) {
+                if (spectating) {
+                    flycam.Update(dt, input);
+                } else {
+                    player.Update(dt, input, scenery, fences, trafficLoaded ? &aiTraffic : nullptr);
+                    camera.Update(player, input, dt);
+                }
+            }
+
+            if (!spectating) {
                 const cardb::CarSpec &curSpec = cardb::Roster()[ui.SelectedCar()];
                 float speedFactor = fabsf(player.GetSpeed()) / curSpec.maxSpeed;
                 bool slip = input.Down(input::ACTION_HANDBRAKE) && fabsf(player.GetSpeed()) > 5.0f;
@@ -777,11 +832,18 @@ int main(int argc, char **argv)
                                splashes.end());
             }
 
-            Vector3 viewPos = camera.Get().position;
+            Vector3 viewPos = spectating ? flycam.Get().position : camera.Get().position;
             sceneShader.UpdateView(viewPos);
             terrainShader.UpdateView(viewPos);
             lake.Update((float)GetTime(), viewPos);
         }
+
+        // Whichever camera is actually driving the view this frame --
+        // the normal chase/hood/etc. camera, or the admin flycam while
+        // spectating. Every render-time camera.Get() below reads this
+        // instead so spectator mode doesn't need its own copy of the
+        // render block.
+        const Camera3D &activeCam = spectating ? flycam.Get() : camera.Get();
 
         // Garage preview: rendered to its own off-screen target before the
         // real frame starts, then handed to the menu as a texture to draw
@@ -858,18 +920,18 @@ int main(int argc, char **argv)
             // panel, so there is nothing lost by not rendering the world
             // behind it too.
             if (playing || (carLoaded && !inGarage)) {
-                Vector3 viewPos = camera.Get().position;
+                Vector3 viewPos = activeCam.position;
                 DrawSky();
 
-                BeginMode3D(camera.Get());
+                BeginMode3D(activeCam);
                     ground.Draw();
                     roadMesh.Draw();
                     fences.Draw();
                     DrawCheckpointMarkers(CHECKPOINT_COUNT);
                     {
-                        Vector3 viewFwd = Vector3Subtract(camera.Get().target, camera.Get().position);
+                        Vector3 viewFwd = Vector3Subtract(activeCam.target, activeCam.position);
                         float aspect = (float)config::SCREEN_WIDTH / (float)config::SCREEN_HEIGHT;
-                        scenery.Draw(viewPos, config::DRAW_DISTANCE, viewFwd, camera.Get().fovy, aspect);
+                        scenery.Draw(viewPos, config::DRAW_DISTANCE, viewFwd, activeCam.fovy, aspect);
                     }
                     if (trafficLoaded) aiTraffic.Draw();
                     player.Draw();
@@ -897,10 +959,19 @@ int main(int argc, char **argv)
                 EndMode3D();
 
                 if (playing) {
-                    DrawHud(player, camera, scenery.GetVisibleCount(), showStats, input, lapCount, lapTime, bestLap,
-                           nextCheckpoint, CHECKPOINT_COUNT, lapInvalid,
-                           hintTimer, lastDriftPopupTimer, lastDriftPopupScore, trafficLoaded ? &aiTraffic : nullptr);
-                    DrawFirstDriveHint(input, hintTimer, config::SCREEN_WIDTH, config::SCREEN_HEIGHT);
+                    if (!spectating) {
+                        DrawHud(player, camera, scenery.GetVisibleCount(), showStats, input, lapCount, lapTime, bestLap,
+                               nextCheckpoint, CHECKPOINT_COUNT, lapInvalid,
+                               hintTimer, lastDriftPopupTimer, lastDriftPopupScore, trafficLoaded ? &aiTraffic : nullptr);
+                        DrawFirstDriveHint(input, hintTimer, config::SCREEN_WIDTH, config::SCREEN_HEIGHT);
+                    } else {
+                        DrawText("SPECTATING", 24, 24, 26, Color{ 120, 220, 255, 255 });
+                        DrawText("RMB: look  W/A/S/D: fly  SHIFT: up  CTRL: down  HANDBRAKE key: boost",
+                                 24, 54, 16, Fade(RAYWHITE, 0.75f));
+                        DrawText("console: /gamemode drive", 24, 74, 16, Fade(RAYWHITE, 0.6f));
+                    }
+
+                    devConsole.Draw(config::SCREEN_WIDTH, config::SCREEN_HEIGHT);
 
                     for (const Confetti &c : confetti) {
                         DrawRectangle((int)c.pos.x - 4, (int)c.pos.y - 4, 8, 8, Fade(c.color, Clamp(c.life, 0.0f, 1.0f)));

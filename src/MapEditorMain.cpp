@@ -36,6 +36,42 @@ const char *StyleName(int s)
     }
 }
 
+// Same Catmull-Rom curve Road.cpp's BuildCentreline() actually drives the
+// game from -- the editor's straight-segment polyline is a placement aid,
+// not what the track will really look like, so the preview re-derives the
+// real curve from the same control points rather than approximating it.
+constexpr int PREVIEW_STEPS_PER_SEGMENT = 16;
+
+Vector2 CatmullRom(Vector2 p0, Vector2 p1, Vector2 p2, Vector2 p3, float t)
+{
+    float t2 = t * t, t3 = t2 * t;
+    Vector2 r;
+    r.x = 0.5f * ((2.0f * p1.x) + (-p0.x + p2.x) * t +
+                  (2.0f * p0.x - 5.0f * p1.x + 4.0f * p2.x - p3.x) * t2 +
+                  (-p0.x + 3.0f * p1.x - 3.0f * p2.x + p3.x) * t3);
+    r.y = 0.5f * ((2.0f * p1.y) + (-p0.y + p2.y) * t +
+                  (2.0f * p0.y - 5.0f * p1.y + 4.0f * p2.y - p3.y) * t2 +
+                  (-p0.y + 3.0f * p1.y - 3.0f * p2.y + p3.y) * t3);
+    return r;
+}
+
+std::vector<Vector2> BuildPreviewCurve(const std::vector<Vector2> &ctrl)
+{
+    std::vector<Vector2> out;
+    int n = (int)ctrl.size();
+    if (n < 4) return out;
+    for (int i = 0; i < n; i++) {
+        Vector2 p0 = ctrl[(i - 1 + n) % n];
+        Vector2 p1 = ctrl[i];
+        Vector2 p2 = ctrl[(i + 1) % n];
+        Vector2 p3 = ctrl[(i + 2) % n];
+        for (int s = 0; s < PREVIEW_STEPS_PER_SEGMENT; s++) {
+            out.push_back(CatmullRom(p0, p1, p2, p3, (float)s / (float)PREVIEW_STEPS_PER_SEGMENT));
+        }
+    }
+    return out;
+}
+
 // World units <-> screen pixels. Pan/zoom live here so every draw/pick
 // call goes through the same transform instead of two drifting copies.
 struct View {
@@ -127,6 +163,7 @@ int main()
 
     View view;
     Mode mode = MODE_ROAD;
+    bool showPreview = true;  // smooth Catmull-Rom curve overlay, see BuildPreviewCurve above
     int dragIndex = -1;       // control point currently being dragged, -1 = none
     const float pickRadius = 14.0f; // screen pixels
     const float gapWidth = 0.04f;   // fraction of the lap a placed gap spans
@@ -142,6 +179,7 @@ int main()
         if (IsKeyPressed(KEY_ONE)) mode = MODE_GAPS;
         if (IsKeyPressed(KEY_TWO)) mode = MODE_ROAD;
         if (IsKeyPressed(KEY_THREE)) worldStyle = (worldStyle + 1) % 4;
+        if (IsKeyPressed(KEY_P)) showPreview = !showPreview;
 
         float wheel = GetMouseWheelMove();
         if (wheel != 0.0f && !overHud) {
@@ -293,8 +331,22 @@ int main()
                 bool overlap = wraps ? (frac0 >= g.x || frac1 <= g.y) : (frac0 >= g.x && frac1 <= g.y);
                 if (overlap) { inGap = true; break; }
             }
-            DrawLineEx(a, b, 4.0f, inGap ? Fade(RED, 0.55f) : Color{ 90, 150, 235, 220 });
+            DrawLineEx(a, b, 4.0f, inGap ? Fade(RED, 0.3f) : Fade(Color{ 90, 150, 235, 220 }, showPreview ? 0.35f : 1.0f));
         }
+
+        // Preview: the actual road curve the game builds, not the straight-
+        // segment polyline above -- that one's just a placement aid between
+        // control points.
+        if (showPreview && n >= 4) {
+            std::vector<Vector2> curve = BuildPreviewCurve(control);
+            int cn = (int)curve.size();
+            for (int i = 0; i < cn; i++) {
+                Vector2 a = view.ToScreen(curve[i], w, h);
+                Vector2 b = view.ToScreen(curve[(i + 1) % cn], w, h);
+                DrawLineEx(a, b, 5.0f, Color{ 120, 210, 140, 235 });
+            }
+        }
+
         for (int i = 0; i < n; i++) {
             Vector2 p = view.ToScreen(control[i], w, h);
             bool hovered = Vector2Distance(p, mouse) <= pickRadius;
@@ -324,8 +376,9 @@ int main()
         // ---- HUD ----
         DrawRectangle(0, 0, w, 96, Fade(Color{ 10, 12, 16, 255 }, 0.9f));
         DrawText(TextFormat("MAP EDITOR -- %s  [%s]", mapName.c_str(), StyleName(worldStyle)), 16, 8, 22, RAYWHITE);
-        DrawText(TextFormat("Mode: %s (1: fence gaps  2: road points  3: cycle world style: %s)",
-                            mode == MODE_ROAD ? "ROAD" : "FENCE GAPS", StyleName(worldStyle)),
+        DrawText(TextFormat("Mode: %s (1: fence gaps  2: road points  3: cycle world style: %s  P: preview curve %s)",
+                            mode == MODE_ROAD ? "ROAD" : "FENCE GAPS", StyleName(worldStyle),
+                            showPreview ? "ON" : "OFF"),
                  16, 34, 16, Fade(RAYWHITE, 0.8f));
         DrawText("LClick: add/drag  RClick: delete  Wheel: zoom  MMB/Arrows: pan  N: new  O: open next  S: save  Esc: quit",
                  16, 54, 14, Fade(RAYWHITE, 0.6f));
