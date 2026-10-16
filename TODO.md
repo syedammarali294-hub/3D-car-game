@@ -65,16 +65,24 @@ builds on the one before it.
 
 ### Phase 5 — creative mode (map editor) + admin mode
 
+- [x] **Admin mode** (toggle in Settings > Car, off by default): `settings::Options::adminMode`,
+      persisted to `options.cfg`.
+- [x] **Minimap teleport gated to admin mode** — in normal play the
+      minimap click-to-teleport is disabled entirely (it's also what
+      breaks laps today, by design — see Phase 1's checkpoint/teleport
+      detection). Only fires when `settings::Get().adminMode` is on.
 - [ ] **Creative mode**: free-fly editor camera, placement tools:
       road control points (drag to reshape the track live), fence
       segments + gaps, trees/rocks, parked/AI cars, raise/lower terrain
       brush for hills/mountains, map border size. Undo, save, test-drive.
-- [ ] **Admin mode** (toggle in Settings, or launched with `--admin`):
-      enables the cheats that shouldn't be in normal play.
-- [ ] **Minimap teleport moves to admin/creative only** — in normal play
-      it's disabled (it's also what breaks laps today).
+      **Not started.** This is a full in-game editor — its own
+      application-sized feature (new camera mode, drag-to-edit UI for
+      road/fence/terrain, a save path back through the Phase 4 `.cgmap`
+      format) — and deserves its own dedicated session rather than being
+      squeezed in alongside the admin-mode toggle.
 - [ ] Terrain becomes data-driven (base noise + per-map edits) instead of
       only the hardcoded `HeightAt()` styles — needed for the terrain brush.
+      Blocked on Creative mode above; not started.
 
 ### Order and why
 

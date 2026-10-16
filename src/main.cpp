@@ -106,7 +106,11 @@ void DrawMinimap(car::Car &player, int screenW, const traffic::AiTraffic *aiTraf
     static float markerTimer = 0.0f;
     Rectangle mapRect{ mapX - 6.0f, mapY - 6.0f, mapSize + 12.0f, mapSize + 12.0f };
     Vector2 mouse = GetMousePosition();
-    if (CheckCollisionPointRec(mouse, mapRect) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+    // Teleporting resets lastRoadIdx without warning and gets caught by the
+    // large-jump lap-invalidation check (see Phase 1) -- that's intentional,
+    // but it means this can't be left available in normal play without a
+    // free way to fake a lap. Admin mode is the explicit opt-in for it.
+    if (settings::Get().adminMode && CheckCollisionPointRec(mouse, mapRect) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
         float wx = cx + ((mouse.x - mapX) / mapSize - 0.5f) * span;
         float wz = cz + ((mouse.y - mapY) / mapSize - 0.5f) * span;
         const road::Sample &target = road::NearestSample(wx, wz);

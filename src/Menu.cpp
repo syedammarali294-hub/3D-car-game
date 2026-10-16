@@ -632,7 +632,7 @@ void Menu::SettingsCar(float top, int w)
         o.useMph = !o.useMph;
         optionsDirty_ = true;
     }
-    y += 58.0f;
+    y += 54.0f;
 
     RowLabel("World", x, y);
     // Cycling here only changes the setting -- the circuit, fences and
@@ -643,7 +643,7 @@ void Menu::SettingsCar(float top, int w)
         worldStyle_ = (terrain::Style)((worldStyle_ + 1) % terrain::STYLE_COUNT);
     }
     DrawText("Applies next time you press Drive.", (int)x, (int)y + 44, 14, Fade(RAYWHITE, 0.55f));
-    y += 78.0f;
+    y += 72.0f;
 
     RowLabel("Graphics", x, y);
     if (ButtonAt(Rectangle{ x + 380.0f, y, 160.0f, 40.0f }, o.ultraGraphics ? "ULTRA" : "LOW", 18)) {
@@ -654,7 +654,7 @@ void Menu::SettingsCar(float top, int w)
              (int)x, (int)y + 44, 14, Fade(RAYWHITE, 0.55f));
     DrawText("Garage -- real meshes, 5-25x the triangle cost of the rest.",
              (int)x, (int)y + 62, 14, Fade(RAYWHITE, 0.55f));
-    y += 92.0f;
+    y += 76.0f;
 
     // Writes to HKEY_CURRENT_USER\Software\Classes (no admin rights
     // needed) -- still a real system-settings change, so it only ever
@@ -673,6 +673,20 @@ void Menu::SettingsCar(float top, int w)
         DrawText("Double-click a .cgmap map file to open it straight into the game.",
                  (int)x, (int)y + 44, 14, Fade(RAYWHITE, 0.55f));
     }
+    y += 68.0f;
+
+    // Admin mode: currently gates minimap click-to-teleport, the one
+    // thing in normal play that can still invalidate a lap (see Phase 1).
+    // A full creative-mode map editor is planned (TODO.md) but not built
+    // yet -- this toggle exists now because the gating itself (and the
+    // lap-integrity reason for it) doesn't need the editor to be real.
+    RowLabel("Admin mode", x, y);
+    if (ButtonAt(Rectangle{ x + 380.0f, y, 160.0f, 40.0f }, o.adminMode ? "ON" : "OFF", 18)) {
+        o.adminMode = !o.adminMode;
+        optionsDirty_ = true;
+    }
+    DrawText("Enables minimap click-to-teleport (breaks lap timing on purpose).",
+             (int)x, (int)y + 44, 14, Fade(RAYWHITE, 0.55f));
 }
 
 void Menu::SettingsGear(const input::Input &input, float top, int w)

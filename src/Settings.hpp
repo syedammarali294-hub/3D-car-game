@@ -28,6 +28,14 @@ struct Options {
     // them always loaded and quietly tanking frame rate on the low-end
     // hardware this project otherwise targets.
     bool ultraGraphics = false;
+
+    // Admin mode: gates things that would otherwise undermine normal
+    // play -- right now, just minimap click-to-teleport (which is also
+    // the one thing that still invalidates a lap; see Phase 1 in
+    // TODO.md). Off by default so lap times/ghosts earned in normal play
+    // can't be casually cheated by someone who doesn't know what the
+    // toggle does.
+    bool adminMode = false;
 };
 
 Options &Get();
