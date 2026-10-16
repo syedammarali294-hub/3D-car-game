@@ -58,3 +58,18 @@ add_custom_command(TARGET CarGame3D POST_BUILD
         ${CMAKE_SOURCE_DIR}/assets
         $<TARGET_FILE_DIR:CarGame3D>/assets
 )
+
+# Standalone top-down track editor -- a separate .exe from the game, same
+# split as Unity/Unreal's editor vs. the built player. Only needs the
+# .cgmap read/write + track data types, not the whole game's car/world/
+# audio stack, so it links against just those two translation units
+# instead of pulling in everything CarGame3D does.
+add_executable(MapEditor
+    src/MapEditorMain.cpp
+    src/MapFile.cpp
+    src/Track.cpp
+)
+target_link_libraries(MapEditor PRIVATE raylib)
+if (WIN32)
+    target_link_libraries(MapEditor PRIVATE winmm)
+endif()
