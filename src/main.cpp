@@ -119,6 +119,52 @@ void DrawMinimap(car::Car &player, int screenW, const traffic::AiTraffic *aiTraf
     }
 }
 
+// Visible start/finish gate (checkpoint 0) and small flag markers
+// (checkpoints 1..checkpointCount-1), all simple primitives computed
+// straight from road::Centreline() -- no new assets, no caching needed
+// for ~8 draws a frame.
+void DrawCheckpointMarkers(int checkpointCount)
+{
+    const auto &samples = road::Centreline();
+    int n = (int)samples.size();
+    if (n == 0) return;
+
+    for (int cp = 0; cp < checkpointCount; cp++) {
+        const road::Sample &s = samples[(n * cp) / checkpointCount];
+        float half = config::ROAD_WIDTH * 0.5f + 1.2f;
+        Vector3 left = Vector3Add(s.position, Vector3Scale(s.right, -half));
+        Vector3 right = Vector3Add(s.position, Vector3Scale(s.right, half));
+
+        if (cp == 0) {
+            // Finish gate: two taller pillars, alternating red/white bands
+            // (a cheap stand-in for a chequered pattern), connected by a
+            // banner bar overhead.
+            float poleH = 5.5f;
+            for (Vector3 base : { left, right }) {
+                for (int band = 0; band < 5; band++) {
+                    float by = base.y + band * (poleH / 5.0f);
+                    Color c = (band % 2 == 0) ? Color{ 230, 230, 230, 255 } : Color{ 210, 40, 40, 255 };
+                    DrawCube(Vector3{ base.x, by + poleH / 10.0f, base.z }, 0.35f, poleH / 5.0f, 0.35f, c);
+                }
+            }
+            Vector3 bannerMid = Vector3Lerp(left, right, 0.5f);
+            bannerMid.y += poleH;
+            float bannerLen = Vector3Distance(left, right);
+            DrawCube(bannerMid, bannerLen, 0.7f, 0.15f, Color{ 230, 230, 230, 255 });
+            DrawCubeWires(bannerMid, bannerLen, 0.7f, 0.15f, Color{ 40, 40, 40, 255 });
+        } else {
+            // Checkpoint flag: one thin pole on the right-hand side, a
+            // small coloured flag near the top.
+            float poleH = 3.2f;
+            Vector3 base = right;
+            DrawCylinderEx(base, Vector3{ base.x, base.y + poleH, base.z }, 0.05f, 0.05f, 6,
+                           Color{ 90, 90, 95, 255 });
+            Vector3 flagCenter = Vector3{ base.x + s.forward.x * 0.35f, base.y + poleH - 0.3f, base.z + s.forward.z * 0.35f };
+            DrawCube(flagCenter, 0.7f, 0.45f, 0.05f, Color{ 90, 200, 255, 255 });
+        }
+    }
+}
+
 void DrawFirstDriveHint(const input::Input &input, float hintTimer, int screenW, int screenH)
 {
     if (hintTimer <= 0.0f) return;
@@ -158,6 +204,7 @@ void DrawFirstDriveHint(const input::Input &input, float hintTimer, int screenW,
 
 void DrawHud(car::Car &player, const cam::GameCamera &camera, int visibleProps,
              bool showStats, const input::Input &input, int lapCount, float lapTime, float bestLap,
+             int nextCheckpoint, int checkpointCount, bool lapInvalid,
              float hintTimer, float driftPopupTimer, float driftPopupScore, const traffic::AiTraffic *aiTraffic)
 {
     // Shows direction rather than hiding it: a flipped sign while coasting
@@ -227,11 +274,22 @@ void DrawHud(car::Car &player, const cam::GameCamera &camera, int visibleProps,
 
     // Lap timer -- current time always shown while a lap is in progress;
     // best lap only once one has actually been completed.
+    Color lapColor = lapInvalid ? Color{ 240, 120, 110, 255 } : RAYWHITE;
     DrawText(TextFormat("Lap %d   %s", lapCount + 1, FormatLapTime(lapTime)),
-             config::SCREEN_WIDTH - 220, 24, 20, Fade(RAYWHITE, 0.9f));
+             config::SCREEN_WIDTH - 220, 24, 20, Fade(lapColor, 0.9f));
+    if (lapInvalid) {
+        DrawText("INVALID (teleported)", config::SCREEN_WIDTH - 220, 50, 14,
+                 Fade(Color{ 240, 120, 110, 255 }, 0.9f));
+    } else {
+        // Checkpoints already hit out of the total -- index 0 is the
+        // finish line itself, so "hit" count is nextCheckpoint - 1.
+        int hit = nextCheckpoint - 1;
+        DrawText(TextFormat("Checkpoint %d/%d", hit, checkpointCount - 1),
+                 config::SCREEN_WIDTH - 220, 50, 14, Fade(RAYWHITE, 0.65f));
+    }
     if (bestLap >= 0.0f) {
         DrawText(TextFormat("Best   %s", FormatLapTime(bestLap)),
-                 config::SCREEN_WIDTH - 220, 50, 18, Fade(Color{ 255, 210, 90, 255 }, 0.9f));
+                 config::SCREEN_WIDTH - 220, 70, 18, Fade(Color{ 255, 210, 90, 255 }, 0.9f));
     }
 
     DrawMinimap(player, config::SCREEN_WIDTH, aiTraffic);
@@ -367,14 +425,26 @@ int main(void)
     std::vector<Splash> splashes;
 
     // Lap tracking: nearest-centreline-index crossing the start/finish line.
-    // "Armed" means the car has gotten roughly halfway round since the last
-    // crossing, so slow back-and-forth wiggling right at the line can't
-    // rack up laps.
+    // Checkpoints (8, evenly spaced around the centreline -- index 0 is the
+    // start/finish line, 1-7 the rest) must be crossed IN ORDER for a lap
+    // to count, replacing the old "got roughly halfway round" heuristic --
+    // that one didn't actually require you to drive the track, just be on
+    // the far side of it when you crossed the line, and had no idea a
+    // teleport had happened.
+    constexpr int CHECKPOINT_COUNT = 8;
     int lapCount = 0;
     float lapTime = 0.0f;
     float bestLap = -1.0f;
     int lastRoadIdx = -1;
-    bool lapArmed = false;
+    int nextCheckpoint = 1; // 1..7 waiting to be crossed; 8 means all hit, only the finish line is left
+    // Set whenever the car's road position jumps a large distance in one
+    // frame -- minimap teleport, Backspace respawn-to-road, and the
+    // internal auto-respawn-when-stuck all go through this same symptom
+    // (a big discontinuity in nearest-centreline-index) without main.cpp
+    // needing its own hook into every place a respawn can happen. A lap in
+    // progress when that happens finishes as INVALID -- no time, no best,
+    // no ghost -- and checkpoint progress restarts from wherever landed.
+    bool lapInvalid = false;
 
     // Ghost of the best completed lap -- recorded every frame during a lap,
     // kept only if that lap turned out to beat the previous best, then
@@ -475,7 +545,8 @@ int main(void)
                 lapTime = 0.0f;
                 bestLap = -1.0f;
                 lastRoadIdx = -1;
-                lapArmed = false;
+                nextCheckpoint = 1;
+                lapInvalid = false;
                 ghostRecording.clear();
                 bestGhost.clear();
             }
@@ -556,33 +627,64 @@ int main(void)
                     Vector3 p = player.GetPosition();
                     int idx = road::NearestSampleIndex(p.x, p.z);
                     if (lastRoadIdx < 0) lastRoadIdx = idx;
-                    if (!lapArmed && idx > N / 2) lapArmed = true;
-                    if (lapArmed && lastRoadIdx > N * 9 / 10 && idx < N / 10) {
-                        bool newBest = (bestLap < 0.0f || lapTime < bestLap);
-                        if (newBest) {
-                            bestLap = lapTime;
-                            bestGhost = ghostRecording; // this lap's recording is the one that just finished
-                        }
-                        ghostRecording.clear();
-                        lapCount++;
-                        lapTime = 0.0f;
-                        lapArmed = false;
 
-                        // A little reward for finishing a lap.
-                        const Color palette[] = {
-                            Color{ 255, 90, 90, 255 }, Color{ 90, 200, 255, 255 },
-                            Color{ 255, 210, 90, 255 }, Color{ 120, 230, 140, 255 },
-                        };
-                        for (int c = 0; c < 36; c++) {
-                            Confetti piece;
-                            piece.pos = Vector2{ (float)config::SCREEN_WIDTH / 2.0f, 90.0f };
-                            float ang = (float)c / 36.0f * 2.0f * PI;
-                            float spd = 120.0f + (float)(c % 5) * 30.0f;
-                            piece.vel = Vector2{ cosf(ang) * spd, sinf(ang) * spd - 60.0f };
-                            piece.life = 1.0f;
-                            piece.color = palette[c % 4];
-                            confetti.push_back(piece);
+                    // Teleport/respawn detection: a normal frame can't move
+                    // more than a tiny fraction of the lap's sample count,
+                    // even at top speed -- a jump bigger than one
+                    // checkpoint-spacing is a discontinuity, not driving.
+                    int rawDiff = idx - lastRoadIdx;
+                    if (rawDiff > N / 2) rawDiff -= N;
+                    if (rawDiff < -N / 2) rawDiff += N;
+                    int jumpMagnitude = (rawDiff < 0) ? -rawDiff : rawDiff;
+                    if (jumpMagnitude > N / CHECKPOINT_COUNT) {
+                        lapInvalid = true;
+                    }
+
+                    // Checkpoints 1..7, crossed in order by advancing past
+                    // each one's target sample index.
+                    if (nextCheckpoint < CHECKPOINT_COUNT) {
+                        int cpTarget = N * nextCheckpoint / CHECKPOINT_COUNT;
+                        if (lastRoadIdx < cpTarget && idx >= cpTarget) {
+                            nextCheckpoint++;
                         }
+                    }
+
+                    // Finish line: the same "crossed from the far end back
+                    // to the start" wraparound the old code used, kept as
+                    // the one case checkpoints 1-7 don't cover.
+                    if (lastRoadIdx > N * 9 / 10 && idx < N / 10) {
+                        bool completedAllCheckpoints = (nextCheckpoint >= CHECKPOINT_COUNT);
+                        if (completedAllCheckpoints && !lapInvalid) {
+                            bool newBest = (bestLap < 0.0f || lapTime < bestLap);
+                            if (newBest) {
+                                bestLap = lapTime;
+                                bestGhost = ghostRecording; // this lap's recording is the one that just finished
+                            }
+                            lapCount++;
+
+                            // A little reward for finishing a lap.
+                            const Color palette[] = {
+                                Color{ 255, 90, 90, 255 }, Color{ 90, 200, 255, 255 },
+                                Color{ 255, 210, 90, 255 }, Color{ 120, 230, 140, 255 },
+                            };
+                            for (int c = 0; c < 36; c++) {
+                                Confetti piece;
+                                piece.pos = Vector2{ (float)config::SCREEN_WIDTH / 2.0f, 90.0f };
+                                float ang = (float)c / 36.0f * 2.0f * PI;
+                                float spd = 120.0f + (float)(c % 5) * 30.0f;
+                                piece.vel = Vector2{ cosf(ang) * spd, sinf(ang) * spd - 60.0f };
+                                piece.life = 1.0f;
+                                piece.color = palette[c % 4];
+                                confetti.push_back(piece);
+                            }
+                        }
+                        // Reset for the next lap either way -- an invalid
+                        // or incomplete attempt still ends here, it just
+                        // doesn't count.
+                        ghostRecording.clear();
+                        lapTime = 0.0f;
+                        nextCheckpoint = 1;
+                        lapInvalid = false;
                     }
                     lastRoadIdx = idx;
                 }
@@ -725,6 +827,7 @@ int main(void)
                     ground.Draw();
                     roadMesh.Draw();
                     fences.Draw();
+                    DrawCheckpointMarkers(CHECKPOINT_COUNT);
                     {
                         Vector3 viewFwd = Vector3Subtract(camera.Get().target, camera.Get().position);
                         float aspect = (float)config::SCREEN_WIDTH / (float)config::SCREEN_HEIGHT;
@@ -757,6 +860,7 @@ int main(void)
 
                 if (playing) {
                     DrawHud(player, camera, scenery.GetVisibleCount(), showStats, input, lapCount, lapTime, bestLap,
+                           nextCheckpoint, CHECKPOINT_COUNT, lapInvalid,
                            hintTimer, lastDriftPopupTimer, lastDriftPopupScore, trafficLoaded ? &aiTraffic : nullptr);
                     DrawFirstDriveHint(input, hintTimer, config::SCREEN_WIDTH, config::SCREEN_HEIGHT);
 
