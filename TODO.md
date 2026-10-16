@@ -83,10 +83,27 @@ frame. Not started yet:
 
 ## Open — world/gameplay, still owed
 
-- [ ] **Water, nature, fence improvements.** Explicitly asked for, not
-      started. No specifics given yet beyond "make fence more advanced" —
-      needs a concrete ask (what should water/nature/fences actually do
-      differently?) before this can be scoped, let alone built.
+- [x] **Water, nature, fence.** Water got a real scrolling ripple-texture
+      layer (downloaded CC BY 4.0 textures) on top of the existing
+      procedural wave shader. Nature got 4 real oak tree models (same CC
+      BY 4.0 source, decimated, ~12% of tree spawns). Fence: collision
+      removed per explicit request ("open world everywhere no fence") --
+      still drawn, just doesn't block the car anymore.
+- [x] **Open world.** WORLD_SIZE 1600 -> 4000 (~6.25x area), mountain ring
+      pushed out to match, terrain tile grid and prop count scaled with
+      it. The circuit itself is unchanged. This is the bounded, safe part
+      of "chunk loading like Minecraft" -- built upfront at load time,
+      not dynamically streamed.
+- [ ] **True chunk streaming.** A genuinely bigger/unbounded world,
+      generated and loaded in chunks around the player as they drive and
+      unloaded behind them, the way the user actually asked for. A much
+      larger, separate undertaking: a chunk coordinate system, lazy
+      per-chunk terrain/prop generation (not the current build-everything-
+      at-Load() approach), amortized loading spread across frames so
+      crossing a chunk boundary doesn't hitch, and a decision about what
+      happens to the fixed circuit/lap-timer gameplay in a world that's no
+      longer a bounded, fully-loaded map. Deliberately not attempted
+      blind in one pass -- deserves its own dedicated session.
 - [ ] **A second circuit / track selection.** Everything reads the circuit
       through `road::Centreline()`/`road::StartPoint()` — a second
       `CONTROL` point set + a track picker (same UI pattern as the car
