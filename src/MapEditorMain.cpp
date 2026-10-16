@@ -151,6 +151,13 @@ bool TextPrompt(const char *title, std::string &out, int screenW, int screenH)
 
 int main()
 {
+    // Same fix as CarGame3D's main() -- see its comment. This editor has
+    // no relative asset loads today, but MapsDirectory() falling back to a
+    // relative "maps\" folder (see MapFile.cpp) would land in the wrong
+    // place if launched from a shortcut whose "Start in" differs from the
+    // exe's own folder, so pin it down the same way regardless.
+    ChangeDirectory(GetApplicationDirectory());
+
     const int screenW = 1280, screenH = 800;
     InitWindow(screenW, screenH, "3D Car Game - Map Editor");
     SetTargetFPS(60);

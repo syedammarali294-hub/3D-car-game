@@ -333,6 +333,17 @@ void DrawHud(car::Car &player, const cam::GameCamera &camera, int visibleProps,
 
 int main(int argc, char **argv)
 {
+    // Every asset/shader load in this project uses a path relative to the
+    // exe (e.g. "shaders/scene.vs"). That's only valid if the current
+    // working directory IS the exe's folder -- true when launched
+    // normally, but Windows sets the cwd to wherever a double-clicked file
+    // lives, not to the exe's folder, when the game is opened by
+    // double-clicking a .cgmap (see FileAssoc.cpp). Without this, every
+    // relative load below silently fails and falls back to raylib's
+    // default white material/texture -- which is exactly why the ground,
+    // trees, and cars went blank white rather than crashing outright.
+    ChangeDirectory(GetApplicationDirectory());
+
     // No MSAA by default -- 4x antialiasing is a real cost on the Intel HD
     // 4000-class hardware this project targets, and the low-poly flat-shaded
     // look was chosen specifically so it does not need smoothing to read
