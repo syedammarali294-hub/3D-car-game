@@ -27,10 +27,15 @@ frame. Not started yet:
       refreshed.
 - [ ] **Post-processing stack**: tonemapping, bloom, vignette. Needs an
       HDR render target first.
-- [ ] **Denser geometry budget** (station counts, wheel segments, terrain
-      resolution, prop density) now that the low-end constraint is lifted.
-      Needs the 32-bit index switch (`MeshBuilder` is 16-bit, see below)
-      if any single batch would exceed 65535 vertices.
+- [x] **Terrain resolution doubled** (RES 200 -> 400), tiled into a 4x4
+      grid since raylib's `Mesh::indices` is a hardcoded `unsigned short*`
+      (a real hard cap, not something a "32-bit index switch" in
+      `MeshBuilder` could fix -- that was a mistaken premise in the old
+      version of this doc; raylib itself would need forking).
+- [ ] **Denser station counts, wheel segments, prop density** (car bodies,
+      fences, scenery) -- same 65535-vertex ceiling applies to any of
+      these if they ever grow that large; tile or split the same way the
+      terrain was if one does.
 - [ ] **Anisotropic/mipped road texture** instead of flat vertex colour.
 - [ ] **Quality preset (Low/High) in Settings** so a future low-end pass,
       if ever wanted again, has a real toggle instead of this being an
@@ -107,9 +112,11 @@ frame. Not started yet:
 
 ## Open — technical
 
-- [ ] `MeshBuilder` uses 16-bit indices (65535 vertex cap per batch).
-      Needed before "denser geometry" above.
-- [ ] Garage car-load caching (see above).
+- [x] The 65535-vertex cap is permanent (raylib's own `Mesh::indices` is a
+      hardcoded `unsigned short*`) -- not fixable by a "32-bit switch" in
+      `MeshBuilder`. Terrain tiled to work within it (see above); anything
+      else that grows past it needs the same treatment.
+- [x] Garage car-load caching (see above).
 - [x] Git repository initialized, pushed to GitHub (private,
       `syedammarali294-hub/3D-car-game`).
 
