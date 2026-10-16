@@ -92,12 +92,26 @@ void World::Unload()
     loaded_ = false;
 }
 
-void World::Draw(Vector3 viewPos, float drawDistance) const
+void World::Draw(Vector3 viewPos, float drawDistance, Vector3 viewForward, float fovyDeg, float aspect) const
 {
     visibleCount_ = 0;
     if (!loaded_) return;
 
     const float maxDistSq = drawDistance * drawDistance;
+
+    // Cone cull: horizontal FOV is wider than the vertical fovy whenever
+    // aspect > 1, so derive it from fovy rather than reusing fovy directly
+    // -- using the vertical angle alone would clip props still visible at
+    // the left/right edge of a widescreen view. +18 degrees of margin over
+    // the true half-angle: this is a cone, not the camera's real frustum,
+    // and props have their own size, so cutting it exactly at the FOV edge
+    // would pop trees in/out right at the edge of the screen.
+    float vHalf = fovyDeg * 0.5f * DEG2RAD;
+    float hHalf = atanf(tanf(vHalf) * aspect);
+    float cosThreshold = cosf(hHalf + 18.0f * DEG2RAD);
+    Vector3 fwd = Vector3Normalize(viewForward);
+    const float nearRadius = 18.0f; // always draw anything this close regardless of angle
+    const float nearRadiusSq = nearRadius * nearRadius;
 
     // Bucket visible props by model type, then issue one instanced draw per
     // type instead of one DrawModelEx per prop. With up to PROP_TARGET
@@ -112,7 +126,13 @@ void World::Draw(Vector3 viewPos, float drawDistance) const
     for (const Prop &p : props_) {
         float dx = p.position.x - viewPos.x;
         float dz = p.position.z - viewPos.z;
-        if (dx * dx + dz * dz > maxDistSq) continue;
+        float distSq = dx * dx + dz * dz;
+        if (distSq > maxDistSq) continue;
+
+        if (distSq > nearRadiusSq) {
+            Vector3 toProp = Vector3Normalize(Vector3{ dx, 0.0f, dz });
+            if (Vector3DotProduct(toProp, fwd) < cosThreshold) continue;
+        }
 
         Matrix scale = MatrixScale(p.scale, p.scale, p.scale);
         Matrix rotate = MatrixRotateY(p.rotation * DEG2RAD);

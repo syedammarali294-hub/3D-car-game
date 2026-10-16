@@ -68,9 +68,11 @@ frame. Not started yet:
       2x the other two and caused a felt stutter switching to it in the
       Garage (`Car::Load` has no cache, so every switch is a real
       synchronous parse + GPU upload).
-- [ ] Still not cached — switching between heavy cars in the Garage will
-      always have *some* hitch. A small LRU cache of loaded `Car` objects
-      would fix this properly if it's still bothering anyone.
+- [x] Garage cars now cached per-roster-slot instead of reloading on
+      every click -- also fixed a second real cost: colour-only changes
+      were triggering a full reload even though the paint tint was never
+      baked into geometry. Both fixed with `Car::SetPaint` + a
+      `vector<unique_ptr<Car>>` cache in `main.cpp`.
 - [x] AI traffic now fires nitro (1.5-3s burst, 1.5x cruise speed, random
       5-14s cooldown per car) — it previously had no boost mechanic at all.
 

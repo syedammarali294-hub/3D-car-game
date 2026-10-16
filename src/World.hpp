@@ -17,7 +17,12 @@ class World {
 public:
     void Load(Shader shader);
     void Unload();
-    void Draw(Vector3 viewPos, float drawDistance) const;
+    // viewForward/fovyDeg/aspect add a cheap cone-based frustum cull on top
+    // of the existing distance cull -- props well outside the camera's view
+    // (behind it, or far off to the side) are skipped entirely rather than
+    // instanced-drawn only to be clipped by the GPU. viewForward need not
+    // be normalized.
+    void Draw(Vector3 viewPos, float drawDistance, Vector3 viewForward, float fovyDeg, float aspect) const;
 
     int GetVisibleCount() const { return visibleCount_; }
 

@@ -660,7 +660,11 @@ int main(void)
                     ground.Draw();
                     roadMesh.Draw();
                     fences.Draw();
-                    scenery.Draw(viewPos, config::DRAW_DISTANCE);
+                    {
+                        Vector3 viewFwd = Vector3Subtract(camera.Get().target, camera.Get().position);
+                        float aspect = (float)config::SCREEN_WIDTH / (float)config::SCREEN_HEIGHT;
+                        scenery.Draw(viewPos, config::DRAW_DISTANCE, viewFwd, camera.Get().fovy, aspect);
+                    }
                     if (trafficLoaded) aiTraffic.Draw();
                     player.Draw();
 
