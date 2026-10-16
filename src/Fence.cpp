@@ -57,6 +57,18 @@ void Fence::Load(Shader shader, const std::vector<Vector2> &gaps)
             Vector3 postNext = Vector3Add(sNext.position, Vector3Scale(sNext.right, (float)side * OFFSET));
             postNext.y = terrain::HeightAt(postNext.x, postNext.z);
 
+            // Rails are two straight boxes between consecutive posts, with
+            // no sampling in between -- on a steep local slope (or any
+            // terrain style producing a sharp height change over one post's
+            // spacing) that stretches into a long, near-vertical sliver
+            // that reads as a stray wire shooting into the sky rather than
+            // a fence. Posts always still get placed at their own correct
+            // ground height; only the rail connecting an implausibly
+            // mismatched pair is skipped; the next post is still fenced by
+            // the segment after it.
+            constexpr float MAX_RAIL_RISE = 2.5f;
+            if (fabsf(postNext.y - post.y) > MAX_RAIL_RISE) continue;
+
             Vector3 mid = Vector3Scale(Vector3Add(post, postNext), 0.5f);
             float railLen = Vector3Distance(post, postNext);
             Vector3 dir = Vector3Normalize(Vector3Subtract(postNext, post));
