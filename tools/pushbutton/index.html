@@ -88,6 +88,7 @@
   btn.addEventListener('click', async () => {
     btn.disabled = true;
     statusEl.textContent = 'pushing...';
+    logEl.textContent = ''; // clear the previous run's log so it can't be mistaken for this one's
     ring.classList.remove('animate'); void ring.offsetWidth; ring.classList.add('animate');
 
     try {
