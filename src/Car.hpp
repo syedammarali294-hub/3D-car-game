@@ -13,6 +13,12 @@ namespace car {
 class Car {
 public:
     void Load(Shader shader, int carIndex, Color paintOverride);
+
+    // Repaints without touching the mesh -- paintTint_ is only ever a
+    // draw-time tint, never baked into geometry, so a colour-only change
+    // never needed a full Load()/Unload() cycle in the first place.
+    void SetPaint(Color paint) { paintTint_ = paint; }
+    int CarIndex() const { return carIndex_; }
     void Unload();
     void Update(float dt, const input::Input &input, const world::World &world, const fence::Fence &fences,
                const traffic::AiTraffic *aiTraffic = nullptr);

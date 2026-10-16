@@ -1,6 +1,7 @@
 #include "raylib.h"
 #include "raymath.h"
 #include <algorithm>
+#include <memory>
 #include <vector>
 
 #include "AiTraffic.hpp"
@@ -357,10 +358,14 @@ int main(void)
     previewShader.Load("shaders/scene.vs", "shaders/scene.fs");
     RenderTexture2D previewRT = LoadRenderTexture(480, 320);
 
-    car::Car previewCar;
-    bool previewLoaded = false;
-    int previewCarIndex = -1;
-    int previewColorIndex = -1;
+    // Garage preview used to reload the full model on every single click --
+    // including a plain colour change, which never actually needed to touch
+    // the mesh at all (Car::SetPaint just updates a draw-time tint). Now:
+    // each car is loaded once and kept resident for the rest of the
+    // session (unique_ptr so the vector can resize without shallow-copying
+    // raylib's raw GPU handles), and a colour-only change just repaints the
+    // already-loaded model.
+    std::vector<std::unique_ptr<car::Car>> previewCache(cardb::Roster().size());
 
     while (!WindowShouldClose())
     {
@@ -578,22 +583,22 @@ int main(void)
         // like any other 2D element.
         bool inGarage = (ui.CurrentScreen() == menu::SCREEN_GARAGE);
         if (inGarage) {
-            if (!previewLoaded || previewCarIndex != ui.SelectedCar() || previewColorIndex != ui.SelectedColorIndex()) {
-                if (previewLoaded) previewCar.Unload();
-                previewCar.Load(previewShader.Get(), ui.SelectedCar(),
-                                ResolveColor(ui.SelectedCar(), ui.SelectedColorIndex()));
-                previewCar.Respawn(Vector3{ 0.0f, 0.0f, 0.0f }, 0.5f);
-                previewCarIndex = ui.SelectedCar();
-                previewColorIndex = ui.SelectedColorIndex();
-                previewLoaded = true;
+            int idx = ui.SelectedCar();
+            if (!previewCache[idx]) {
+                previewCache[idx] = std::make_unique<car::Car>();
+                previewCache[idx]->Load(previewShader.Get(), idx, ResolveColor(idx, ui.SelectedColorIndex()));
+                previewCache[idx]->Respawn(Vector3{ 0.0f, 0.0f, 0.0f }, 0.5f);
             }
+            car::Car &previewCar = *previewCache[idx];
+            // Colour-only change: just retint, no reload at all.
+            previewCar.SetPaint(ResolveColor(idx, ui.SelectedColorIndex()));
 
             // Menu owns the angle now -- TickGarage auto-orbits it when idle
             // and drag-rotates it when the player holds the mouse down over
             // the preview, so it has to run before this reads it.
             float previewAngle = ui.GaragePreviewAngle();
 
-            const cardb::CarSpec &pspec = cardb::Roster()[ui.SelectedCar()];
+            const cardb::CarSpec &pspec = cardb::Roster()[idx];
             Vector3 carPos = previewCar.GetPosition();
             float dist = pspec.design.length * 1.25f + 1.4f;
             Camera3D previewCam = { 0 };
@@ -726,7 +731,9 @@ int main(void)
     audio::Shutdown();
 
     if (carLoaded) player.Unload();
-    if (previewLoaded) previewCar.Unload();
+    for (auto &c : previewCache) {
+        if (c) c->Unload();
+    }
     UnloadRenderTexture(previewRT);
     previewShader.Unload();
     scenery.Unload();
