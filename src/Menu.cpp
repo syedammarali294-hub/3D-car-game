@@ -556,19 +556,50 @@ void Menu::TickSettings(input::Input &input, int w, int h)
 
 void Menu::SettingsKeys(input::Input &input, float top, float bottom, int w)
 {
-    (void)bottom;
     const float pitch = 44.0f;
-    float y = top;
-    for (int a = 0; a < input::ACTION_COUNT; a++) {
-        Rectangle rowRect = Rectangle{ w * 0.5f - 280.0f, y, 560.0f, 40.0f };
-        RowLabel(input::Input::ActionLabel((input::Action)a), rowRect.x, rowRect.y - 4.0f);
+    const float viewH = bottom - top;
+    const float contentH = input::ACTION_COUNT * pitch;
+    const float maxScroll = fmaxf(0.0f, contentH - viewH);
 
-        Rectangle keyBtn = Rectangle{ rowRect.x + 380.0f, rowRect.y, 160.0f, 36.0f };
-        const char *label = input::Input::KeyLabel(input.GetKey((input::Action)a));
-        if (ButtonAt(keyBtn, label, 20)) {
-            rebindingAction_ = a;
+    // ACTION_COUNT rows at `pitch` apart overflow past `bottom` (the Reset/
+    // Back buttons) once there are enough keybinds -- this scissors the
+    // list to [top, bottom] and lets the wheel/drag move a clamped offset
+    // through it, rather than silently drawing rows nobody can reach.
+    Rectangle viewport = Rectangle{ 0.0f, top, (float)w, viewH };
+    Vector2 mouse = GetMousePosition();
+    if (CheckCollisionPointRec(mouse, viewport)) {
+        float wheel = GetMouseWheelMove();
+        if (wheel != 0.0f) keysScroll_ -= wheel * pitch * 2.0f;
+    }
+    keysScroll_ = Clamp(keysScroll_, 0.0f, maxScroll);
+
+    BeginScissorMode(0, (int)top, w, (int)viewH);
+    float y = top - keysScroll_;
+    for (int a = 0; a < input::ACTION_COUNT; a++) {
+        if (y + pitch >= top && y <= bottom) {
+            Rectangle rowRect = Rectangle{ w * 0.5f - 280.0f, y, 560.0f, 40.0f };
+            RowLabel(input::Input::ActionLabel((input::Action)a), rowRect.x, rowRect.y - 4.0f);
+
+            Rectangle keyBtn = Rectangle{ rowRect.x + 380.0f, rowRect.y, 160.0f, 36.0f };
+            const char *label = input::Input::KeyLabel(input.GetKey((input::Action)a));
+            if (ButtonAt(keyBtn, label, 20)) {
+                rebindingAction_ = a;
+            }
         }
         y += pitch;
+    }
+    EndScissorMode();
+
+    if (maxScroll > 0.0f) {
+        DrawText("scroll for more", w / 2 - MeasureText("scroll for more", 14) / 2, (int)(bottom - 2.0f), 14,
+                 Fade(RAYWHITE, 0.5f));
+        // Simple scrollbar track on the right edge of the list so there's a
+        // visible cue that more rows exist, not just the hint text.
+        float barX = w * 0.5f + 300.0f;
+        DrawRectangleRec(Rectangle{ barX, top, 6.0f, viewH }, Fade(RAYWHITE, 0.15f));
+        float thumbH = fmaxf(20.0f, viewH * (viewH / contentH));
+        float thumbY = top + (viewH - thumbH) * (keysScroll_ / maxScroll);
+        DrawRectangleRec(Rectangle{ barX, thumbY, 6.0f, thumbH }, Fade(RAYWHITE, 0.5f));
     }
 }
 

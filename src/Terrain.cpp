@@ -74,11 +74,25 @@ float HeightAt(float x, float z)
 
     // No lake in the desert -- an oasis-sized puddle would read as a
     // mistake rather than a feature at this scale.
+    //
+    // Water.cpp draws one flat plane across the WHOLE world at
+    // WATER_LEVEL, not just under the lake -- it only ever becomes visible
+    // where terrain dips below that, so the lake "exists" purely because
+    // HeightAt() dips low near LAKE_X/LAKE_Z. The style noise above can
+    // dip below WATER_LEVEL anywhere on the map, though (hills especially),
+    // which used to flood random low points along tracks far from the
+    // lake with no warning. Clamping everywhere outside the lake's own
+    // falloff back above the waterline keeps the lake the only place that
+    // floods, without having to touch Water.cpp's plane itself.
+    const float floor = WATER_LEVEL + 1.0f;
     if (g_style != STYLE_DESERT) {
         float dx = x - LAKE_X;
         float dz = z - LAKE_Z;
         float lakeT = SmoothStep01(1.0f - sqrtf(dx * dx + dz * dz) / LAKE_RADIUS);
         h -= lakeT * 17.0f;
+        h = Lerp(fmaxf(h, floor), h, lakeT);
+    } else {
+        h = fmaxf(h, floor);
     }
 
     // Keep the spawn area flat so the car always starts on dry, level ground.

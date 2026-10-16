@@ -93,6 +93,7 @@ private:
     enum SettingsTab { TAB_KEYS = 0, TAB_SOUND, TAB_CAR, TAB_GEAR, TAB_HOWTO, TAB_COUNT };
     int settingsTab_ = TAB_KEYS;
     bool optionsDirty_ = false; // saved once the mouse is released, not every drag frame
+    float keysScroll_ = 0.0f; // pixels scrolled down the Keybinds list; clamped each frame to content height
     void SettingsKeys(input::Input &input, float top, float bottom, int w);
     void SettingsSound(float top, int w);
     void SettingsCar(float top, int w);
