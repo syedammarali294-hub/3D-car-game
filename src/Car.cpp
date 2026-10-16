@@ -18,6 +18,17 @@ namespace car {
 
 namespace {
 
+// Same fix as Camera.cpp's SmoothFactor and for the same reason: a bare
+// `rate * dt` lerp factor (no clamp) can exceed 1.0 at low frame rate, and
+// raylib's Lerp(a, b, t) with t > 1 extrapolates PAST the target instead of
+// easing toward it -- steering/body-roll could overshoot and oscillate
+// during any real frame drop, not just look slightly off. This is the
+// correct frame-rate-independent exponential-decay smoothing factor.
+float SmoothFactor(float rate, float dt)
+{
+    return 1.0f - expf(-rate * dt);
+}
+
 float ApproachZero(float value, float amount)
 {
     if (value > 0.0f) return (value > amount) ? value - amount : 0.0f;
@@ -270,7 +281,7 @@ void Car::Update(float dt, const input::Input &input, const world::World &world,
     if (steerLeft) steerInput += 1.0f;
     if (steerRight) steerInput -= 1.0f;
 
-    steerAngle_ = Lerp(steerAngle_, steerInput * 0.55f, 9.0f * dt);
+    steerAngle_ = Lerp(steerAngle_, steerInput * 0.55f, SmoothFactor(9.0f, dt));
 
     float speedFactor = speed_ / effMaxSpeed;
     heading_ += steerInput * effTurnRate * speedFactor * dt;
@@ -389,7 +400,7 @@ void Car::Update(float dt, const input::Input &input, const world::World &world,
     }
 
     wheelSpin_ += (speed_ / spec.design.wheelRadius) * dt;
-    bodyRoll_ = Lerp(bodyRoll_, -steerInput * speedFactor * 0.08f, 6.0f * dt);
+    bodyRoll_ = Lerp(bodyRoll_, -steerInput * speedFactor * 0.08f, SmoothFactor(6.0f, dt));
 
     skidmarks::Update(dt);
 }
@@ -415,7 +426,7 @@ void Car::UpdateAutoDrive(float dt)
     const upgrades::CarUpgrade &upg = upgrades::Get(carIndex_);
     float effMaxSpeed = spec.maxSpeed * upgrades::EngineMultiplier(upg.engine);
     float cruiseSpeed = effMaxSpeed * 0.55f;
-    speed_ = Lerp(speed_, cruiseSpeed, Clamp(1.5f * dt, 0.0f, 1.0f));
+    speed_ = Lerp(speed_, cruiseSpeed, SmoothFactor(1.5f, dt));
 
     // Real distance to the next sample, not a guessed constant -- see
     // AiTraffic::Update for the actual measurement (average ~11.8 units,
@@ -456,8 +467,8 @@ void Car::UpdateAutoDrive(float dt)
     tripMeters_ += fabsf(speed_) * dt;
     upgrades::AddDistance(carIndex_, fabsf(speed_) * dt);
     wheelSpin_ += (speed_ / spec.design.wheelRadius) * dt;
-    bodyRoll_ = Lerp(bodyRoll_, 0.0f, 6.0f * dt);
-    slipAngle_ = Lerp(slipAngle_, 0.0f, 6.0f * dt);
+    bodyRoll_ = Lerp(bodyRoll_, 0.0f, SmoothFactor(6.0f, dt));
+    slipAngle_ = Lerp(slipAngle_, 0.0f, SmoothFactor(6.0f, dt));
 
     justHit_ = false;
     wasBlocked_ = false;

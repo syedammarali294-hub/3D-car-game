@@ -18,6 +18,19 @@ Vector3 ClampAboveGround(Vector3 p, float minClearance)
     return p;
 }
 
+// Proper exponential-decay smoothing factor, used in place of the more
+// common Clamp(rate * dt, 0, 1) approximation every camera mode below used
+// to lerp with. That approximation only holds for small dt (high frame
+// rate) -- under any real hitch or frame drop, rate*dt can exceed 1 and
+// gets clamped there, which doesn't ease the camera toward its target, it
+// snaps it there instantly. 1 - exp(-rate*dt) asymptotically approaches 1
+// without ever doing that, so camera motion stays smooth and consistent
+// regardless of frame-time variance, not just at a steady 60fps.
+float SmoothFactor(float rate, float dt)
+{
+    return 1.0f - expf(-rate * dt);
+}
+
 } // namespace
 
 void GameCamera::Init(const car::Car &target)
@@ -51,7 +64,7 @@ void GameCamera::UpdateChase(const car::Car &target, float dt)
     Vector3 carPos = target.GetPosition();
 
     float diff = Wrap(target.GetHeading() - yaw_, -PI, PI);
-    yaw_ += diff * Clamp(5.0f * dt, 0.0f, 1.0f);
+    yaw_ += diff * SmoothFactor(5.0f, dt);
 
     float pullBack = distance_ + fabsf(target.GetSpeed()) * 0.06f;
 
@@ -62,7 +75,7 @@ void GameCamera::UpdateChase(const car::Car &target, float dt)
     };
     desired = ClampAboveGround(desired, 2.0f);
 
-    camera_.position = Vector3Lerp(camera_.position, desired, Clamp(8.0f * dt, 0.0f, 1.0f));
+    camera_.position = Vector3Lerp(camera_.position, desired, SmoothFactor(8.0f, dt));
     camera_.target = Vector3Add(carPos, Vector3{ 0.0f, 1.6f, 0.0f });
     camera_.fovy = 60.0f;
 }
@@ -82,7 +95,7 @@ void GameCamera::UpdateHood(const car::Car &target, float dt)
     Vector3 eye = Vector3Add(carPos, Vector3{ forward.x * eyeZ, eyeY, forward.z * eyeZ });
     eye = ClampAboveGround(eye, 0.3f);
 
-    camera_.position = Vector3Lerp(camera_.position, eye, Clamp(20.0f * dt, 0.0f, 1.0f));
+    camera_.position = Vector3Lerp(camera_.position, eye, SmoothFactor(20.0f, dt));
     camera_.target = Vector3Add(eye, Vector3Scale(forward, 8.0f));
     camera_.fovy = 68.0f;
 }
@@ -100,7 +113,7 @@ void GameCamera::UpdateBumper(const car::Car &target, float dt)
     });
     eye = ClampAboveGround(eye, 0.2f);
 
-    camera_.position = Vector3Lerp(camera_.position, eye, Clamp(20.0f * dt, 0.0f, 1.0f));
+    camera_.position = Vector3Lerp(camera_.position, eye, SmoothFactor(20.0f, dt));
     camera_.target = Vector3Add(eye, Vector3Scale(forward, 8.0f));
     camera_.fovy = 72.0f;
 }
@@ -118,7 +131,7 @@ void GameCamera::UpdateOrbit(const car::Car &target, float dt)
     };
     desired = ClampAboveGround(desired, 1.6f);
 
-    camera_.position = Vector3Lerp(camera_.position, desired, Clamp(6.0f * dt, 0.0f, 1.0f));
+    camera_.position = Vector3Lerp(camera_.position, desired, SmoothFactor(6.0f, dt));
     camera_.target = Vector3Add(carPos, Vector3{ 0.0f, 1.2f, 0.0f });
     camera_.fovy = 55.0f;
 }
@@ -139,7 +152,7 @@ void GameCamera::UpdateCinematic(const car::Car &target, float dt)
     };
     desired = ClampAboveGround(desired, 0.8f);
 
-    camera_.position = Vector3Lerp(camera_.position, desired, Clamp(3.0f * dt, 0.0f, 1.0f));
+    camera_.position = Vector3Lerp(camera_.position, desired, SmoothFactor(3.0f, dt));
     camera_.target = Vector3Add(carPos, Vector3{ 0.0f, 1.0f, 0.0f });
     camera_.fovy = 46.0f;
 }
