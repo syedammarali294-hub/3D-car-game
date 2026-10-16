@@ -1,6 +1,7 @@
 #include "raylib.h"
 #include "raymath.h"
 #include <algorithm>
+#include <cstdio>
 #include <memory>
 #include <string>
 #include <vector>
@@ -661,8 +662,25 @@ int main(int argc, char **argv)
                 } else if (cmd == "/refillnos") {
                     player.RefillBoost();
                     devConsole.Log("NOS refilled.");
+                } else if (cmd == "/pos") {
+                    Vector3 p = spectating ? flycam.Get().position : player.GetPosition();
+                    devConsole.Log(TextFormat("x=%.1f y=%.1f z=%.1f", p.x, p.y, p.z));
+                } else if (cmd.rfind("/tp ", 0) == 0) {
+                    float tx, ty, tz;
+                    if (sscanf(cmd.c_str() + 4, "%f %f %f", &tx, &ty, &tz) == 3) {
+                        Vector3 dest{ tx, ty, tz };
+                        if (spectating) {
+                            Vector3 lookDir = Vector3Subtract(flycam.Get().target, flycam.Get().position);
+                            flycam.Init(dest, atan2f(lookDir.x, lookDir.z)); // keep facing the same way
+                        } else {
+                            player.Respawn(dest, player.GetHeading());
+                        }
+                        devConsole.Log(TextFormat("Teleported to %.1f %.1f %.1f", tx, ty, tz));
+                    } else {
+                        devConsole.Log("Usage: /tp <x> <y> <z>");
+                    }
                 } else if (cmd == "/help") {
-                    devConsole.Log("Commands: /gamemode spectator, /gamemode drive, /respawn, /refillnos, /help");
+                    devConsole.Log("Commands: /gamemode spectator, /gamemode drive, /respawn, /refillnos, /tp x y z, /pos, /help");
                 } else {
                     devConsole.Log("Unknown command: " + cmd + " (try /help)");
                 }

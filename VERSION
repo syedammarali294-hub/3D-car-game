@@ -1,8 +1,24 @@
-1.6.0
+1.7.0
 
 Build date: 2026-10-16
 
 ## Changelog
+
+### 1.7.0 - 2026-10-16
+- Fixed: the road/fence curve used uniform Catmull-Rom parametrization,
+  which loops and self-intersects when control points are spaced
+  unevenly -- exactly what a freehand/custom map tends to have. That hole
+  in the curve was a hole in the fence boundary you could drive straight
+  through. Switched to centripetal Catmull-Rom (Barry & Goldman), which
+  guarantees no cusps/loops regardless of point spacing. Fixes it for
+  every custom map, not just one.
+- Added: app icons (procedurally generated, `tools/icons/make_icons.py`)
+  for both exes, a wordmark logo, and an NSIS installer
+  (`installer/installer.nsi`) with Start Menu/Desktop shortcuts and an
+  uninstaller.
+- Added: `/tp <x> <y> <z>` and `/pos` console commands.
+- Added: `LICENSE` (MIT for original code; third-party asset licenses
+  called out separately, two of which are NonCommercial).
 
 ### 1.6.0 - 2026-10-16
 - Added: 3 tracks (Small/Long/Longest), 8-checkpoint lap validation that

@@ -1,13 +1,19 @@
-# 3D Car Game
+<p align="center"><img src="assets/icons/logo.png" alt="3D Car Game" width="520"></p>
 
 An open-world low-poly driving game in C++ with [raylib](https://www.raylib.com).
-Everything you see is generated at runtime from code — the terrain, the road
-circuit, the fences, the scenery scatter and the car bodies themselves. There
-are no imported model files, no badges and no brand names.
+Nearly everything you see is generated at runtime from code — the terrain,
+the road circuit, the fences, the scenery scatter and every car body except
+the 3 optional "Ultra Graphics" licensed models (see Credits).
 
-Built to run well on low-end hardware (Intel HD 4000 class) by leaning on art
-direction rather than horsepower: flat-shaded vertex colours, aggressive draw
-distance culling, and one draw call per batched system.
+Started targeting low-end hardware (Intel HD 4000 class); that constraint was
+later dropped in favor of a fuller rendering feature set — see `TODO.md` for
+exactly what's still open there.
+
+## Download
+
+Prebuilt Windows installer (game + standalone Map Editor, both with Start
+Menu/Desktop shortcuts): see [Releases](../../releases). Or build from
+source below.
 
 ## Building
 
@@ -99,9 +105,17 @@ One system per translation unit:
 
 - **raylib** — raysan5 and contributors, zlib licence.
 - **Kenney Nature Kit** — kenney.nl, CC0 1.0.
-- Car bodies, terrain, road and all other geometry: original to this project.
+- "BMW Modified Racing Car \| BMW M3 E30" by DevPoly3D — skfb.ly/pFIqo — CC BY 4.0
+- "BMW M3 Competition" by VTX — skfb.ly/pMrWu — CC BY-NC-SA 4.0 (non-commercial)
+- "BMW S1000 RR" by VTX — skfb.ly/pMyBS — CC BY-NC-SA 4.0 (non-commercial)
+- "Oak trees pack" by LOLIPOP — skfb.ly/pNwKz — CC BY 4.0
+- "Water Animation" by Artise1 — skfb.ly/6WSTs — CC BY 4.0
+- Everything else (every other car body, terrain, road, fence, UI, and the
+  from-scratch audio synthesizer): original to this project.
 
-Also listed in-game under **Credits**.
+Also listed in-game under **Credits**. See `LICENSE` for how this project's
+own MIT license interacts with the third-party assets above (the two
+NonCommercial-licensed models in particular).
 
 ## Gearbox
 

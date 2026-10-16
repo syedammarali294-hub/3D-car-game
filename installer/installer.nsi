@@ -3,7 +3,7 @@
 ; (run from the repo root so the relative paths below resolve)
 
 !define APP_NAME "3D Car Game"
-!define APP_VERSION "1.6.0"
+!define APP_VERSION "1.7.0"
 !define APP_PUBLISHER "syedammarali294-hub"
 !define INSTALL_DIR_NAME "3D Car Game"
 

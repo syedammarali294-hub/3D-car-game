@@ -36,23 +36,36 @@ const char *StyleName(int s)
     }
 }
 
-// Same Catmull-Rom curve Road.cpp's BuildCentreline() actually drives the
-// game from -- the editor's straight-segment polyline is a placement aid,
-// not what the track will really look like, so the preview re-derives the
-// real curve from the same control points rather than approximating it.
+// Same centripetal Catmull-Rom curve Road.cpp's BuildCentreline() actually
+// drives the game from (see its own comment for why centripetal, not
+// uniform, matters) -- the editor's straight-segment polyline is a
+// placement aid, not what the track will really look like, so the preview
+// re-derives the exact real curve rather than approximating it.
 constexpr int PREVIEW_STEPS_PER_SEGMENT = 16;
 
-Vector2 CatmullRom(Vector2 p0, Vector2 p1, Vector2 p2, Vector2 p3, float t)
+Vector2 CentripetalCatmullRom(Vector2 p0, Vector2 p1, Vector2 p2, Vector2 p3, float u)
 {
-    float t2 = t * t, t3 = t2 * t;
-    Vector2 r;
-    r.x = 0.5f * ((2.0f * p1.x) + (-p0.x + p2.x) * t +
-                  (2.0f * p0.x - 5.0f * p1.x + 4.0f * p2.x - p3.x) * t2 +
-                  (-p0.x + 3.0f * p1.x - 3.0f * p2.x + p3.x) * t3);
-    r.y = 0.5f * ((2.0f * p1.y) + (-p0.y + p2.y) * t +
-                  (2.0f * p0.y - 5.0f * p1.y + 4.0f * p2.y - p3.y) * t2 +
-                  (-p0.y + 3.0f * p1.y - 3.0f * p2.y + p3.y) * t3);
-    return r;
+    constexpr float ALPHA = 0.5f;
+    auto knotDelta = [ALPHA](Vector2 a, Vector2 b) {
+        float d = Vector2Distance(a, b);
+        return (d < 1e-4f) ? 1.0f : powf(d, ALPHA);
+    };
+
+    float t0 = 0.0f;
+    float t1 = t0 + knotDelta(p0, p1);
+    float t2 = t1 + knotDelta(p1, p2);
+    float t3 = t2 + knotDelta(p2, p3);
+
+    float t = Lerp(t1, t2, u);
+
+    Vector2 a1 = Vector2Lerp(p0, p1, (t - t0) / (t1 - t0));
+    Vector2 a2 = Vector2Lerp(p1, p2, (t - t1) / (t2 - t1));
+    Vector2 a3 = Vector2Lerp(p2, p3, (t - t2) / (t3 - t2));
+
+    Vector2 b1 = Vector2Lerp(a1, a2, (t - t0) / (t2 - t0));
+    Vector2 b2 = Vector2Lerp(a2, a3, (t - t1) / (t3 - t1));
+
+    return Vector2Lerp(b1, b2, (t - t1) / (t2 - t1));
 }
 
 std::vector<Vector2> BuildPreviewCurve(const std::vector<Vector2> &ctrl)
@@ -66,7 +79,7 @@ std::vector<Vector2> BuildPreviewCurve(const std::vector<Vector2> &ctrl)
         Vector2 p2 = ctrl[(i + 1) % n];
         Vector2 p3 = ctrl[(i + 2) % n];
         for (int s = 0; s < PREVIEW_STEPS_PER_SEGMENT; s++) {
-            out.push_back(CatmullRom(p0, p1, p2, p3, (float)s / (float)PREVIEW_STEPS_PER_SEGMENT));
+            out.push_back(CentripetalCatmullRom(p0, p1, p2, p3, (float)s / (float)PREVIEW_STEPS_PER_SEGMENT));
         }
     }
     return out;

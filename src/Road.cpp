@@ -14,19 +14,39 @@ std::vector<Sample> g_samples;
 
 constexpr int STEPS_PER_SEGMENT = 24;
 
-Vector2 CatmullRom(Vector2 p0, Vector2 p1, Vector2 p2, Vector2 p3, float t)
+// Centripetal Catmull-Rom (Barry & Goldman), not the plain uniform formula
+// this used to be. Uniform Catmull-Rom only looks right when control
+// points are roughly evenly spaced -- feed it a real custom map (few
+// points, placed freehand, wildly uneven spacing) and it loops/overshoots
+// badly enough to self-intersect, which showed up as a hole in the fence
+// boundary you could drive straight through ("go through the road" bug
+// report on a 4-point custom map with one side ~2.4x longer than
+// another). The centripetal parametrization (alpha=0.5, knots from actual
+// inter-point distances) is the standard fix: it mathematically guarantees
+// no cusps or loops between p1 and p2 regardless of spacing.
+Vector2 CentripetalCatmullRom(Vector2 p0, Vector2 p1, Vector2 p2, Vector2 p3, float u)
 {
-    float t2 = t * t;
-    float t3 = t2 * t;
+    constexpr float ALPHA = 0.5f;
+    auto knotDelta = [ALPHA](Vector2 a, Vector2 b) {
+        float d = Vector2Distance(a, b);
+        return (d < 1e-4f) ? 1.0f : powf(d, ALPHA); // guard coincident points, not a 0-length step
+    };
 
-    Vector2 r;
-    r.x = 0.5f * ((2.0f * p1.x) + (-p0.x + p2.x) * t +
-                  (2.0f * p0.x - 5.0f * p1.x + 4.0f * p2.x - p3.x) * t2 +
-                  (-p0.x + 3.0f * p1.x - 3.0f * p2.x + p3.x) * t3);
-    r.y = 0.5f * ((2.0f * p1.y) + (-p0.y + p2.y) * t +
-                  (2.0f * p0.y - 5.0f * p1.y + 4.0f * p2.y - p3.y) * t2 +
-                  (-p0.y + 3.0f * p1.y - 3.0f * p2.y + p3.y) * t3);
-    return r;
+    float t0 = 0.0f;
+    float t1 = t0 + knotDelta(p0, p1);
+    float t2 = t1 + knotDelta(p1, p2);
+    float t3 = t2 + knotDelta(p2, p3);
+
+    float t = Lerp(t1, t2, u);
+
+    Vector2 a1 = Vector2Lerp(p0, p1, (t - t0) / (t1 - t0));
+    Vector2 a2 = Vector2Lerp(p1, p2, (t - t1) / (t2 - t1));
+    Vector2 a3 = Vector2Lerp(p2, p3, (t - t2) / (t3 - t2));
+
+    Vector2 b1 = Vector2Lerp(a1, a2, (t - t0) / (t2 - t0));
+    Vector2 b2 = Vector2Lerp(a2, a3, (t - t1) / (t3 - t1));
+
+    return Vector2Lerp(b1, b2, (t - t1) / (t2 - t1));
 }
 
 } // namespace
@@ -46,7 +66,7 @@ void BuildCentreline(const std::vector<Vector2> &control)
         Vector2 p3 = control[(i + 2) % controlCount];
 
         for (int s = 0; s < STEPS_PER_SEGMENT; s++) {
-            flat.push_back(CatmullRom(p0, p1, p2, p3, (float)s / (float)STEPS_PER_SEGMENT));
+            flat.push_back(CentripetalCatmullRom(p0, p1, p2, p3, (float)s / (float)STEPS_PER_SEGMENT));
         }
     }
 
