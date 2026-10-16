@@ -51,6 +51,10 @@ public:
     void Respawn(Vector3 position, float heading);
     void RespawnNearestRoad();
 
+    // Admin-mode debug utility: instantly refills NOS fuel. Gated behind
+    // settings::Get().adminMode at the call site in main.cpp -- see Settings.hpp.
+    void RefillBoost() { boost_ = 1.0f; }
+
     // Draws this car's already-loaded body at an arbitrary position/heading
     // instead of its own current state -- used for the best-lap ghost
     // replay, which reuses the player's own model rather than loading a

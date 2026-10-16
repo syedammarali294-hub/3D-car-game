@@ -317,6 +317,12 @@ void DrawHud(car::Car &player, const cam::GameCamera &camera, int visibleProps,
         DrawText(TextFormat("props drawn: %d", visibleProps), 24, 142, 18, Fade(RAYWHITE, 0.8f));
         DrawText("F1: hide stats", 24, 164, 16, Fade(RAYWHITE, 0.55f));
     }
+
+    if (settings::Get().adminMode) {
+        DrawText("ADMIN MODE", 24, config::SCREEN_HEIGHT - 70, 18, Color{ 255, 90, 90, 255 });
+        DrawText("minimap click: teleport  F2: refill NOS  F3: unstick", 24, config::SCREEN_HEIGHT - 48, 14,
+                 Fade(RAYWHITE, 0.7f));
+    }
 }
 
 } // namespace
@@ -589,6 +595,14 @@ int main(int argc, char **argv)
             }
 
             if (IsKeyPressed(KEY_F1)) showStats = !showStats;
+
+            // Admin-mode debug utilities (see Settings.hpp for why these are
+            // gated -- same reasoning as the minimap teleport above: they'd
+            // undermine normal play if left always-on).
+            if (settings::Get().adminMode) {
+                if (IsKeyPressed(KEY_F2)) player.RefillBoost();
+                if (IsKeyPressed(KEY_F3)) player.RespawnNearestRoad();
+            }
 
             if (hintTimer > 0.0f) {
                 hintTimer -= dt;
