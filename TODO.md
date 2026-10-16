@@ -141,8 +141,9 @@ frame. Not started yet:
 
 - [x] Full engine audio (RPM-following pitch, gear-shift clunk), tyre
       squeal, collision thump, ambient wind — all done in earlier sessions.
-- [ ] Water splash on entering the lake — still just the "IN WATER" label
-      and speed drag, no sound or visual.
+- [x] Water splash sound on entering the lake (synthesised, speed-scaled,
+      edge-detected so it fires once per entry). No visual splash/particle
+      effect yet -- just audio.
 
 ## Done (earlier sessions, high level — see git log for detail)
 

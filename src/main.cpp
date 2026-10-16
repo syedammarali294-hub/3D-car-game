@@ -360,6 +360,12 @@ int main(void)
     struct Confetti { Vector2 pos; Vector2 vel; float life; Color color; };
     std::vector<Confetti> confetti;
 
+    // Visual pairing for the water-splash sound: a handful of small 3D
+    // droplets launched from the entry point, gravity-faded, same spirit
+    // as the confetti above but in world space instead of screen space.
+    struct Splash { Vector3 pos; Vector3 vel; float life; };
+    std::vector<Splash> splashes;
+
     // Lap tracking: nearest-centreline-index crossing the start/finish line.
     // "Armed" means the car has gotten roughly halfway round since the last
     // crossing, so slow back-and-forth wiggling right at the line can't
@@ -515,6 +521,21 @@ int main(void)
 
                 if (player.JustEnteredWater()) {
                     audio::PlayWaterSplash(Clamp(speedFactor, 0.0f, 1.0f));
+
+                    Vector3 entry = player.GetPosition();
+                    entry.y = terrain::WATER_LEVEL;
+                    unsigned int sseed = (unsigned int)(entry.x * 131.0f) ^ (unsigned int)(entry.z * 977.0f) ^ 0xBADF00Du;
+                    for (int c = 0; c < 14; c++) {
+                        sseed = sseed * 1664525u + 1013904223u;
+                        float a = ((sseed >> 8) & 0xFFFFFF) / (float)0xFFFFFF * 2.0f * PI;
+                        sseed = sseed * 1664525u + 1013904223u;
+                        float speed = 2.0f + ((sseed >> 8) & 0xFFFFFF) / (float)0xFFFFFF * 3.0f * (0.4f + Clamp(speedFactor, 0.0f, 1.0f));
+                        Splash s;
+                        s.pos = entry;
+                        s.vel = Vector3{ cosf(a) * speed, 3.5f + speed * 0.6f, sinf(a) * speed };
+                        s.life = 1.0f;
+                        splashes.push_back(s);
+                    }
                 }
 
                 if (input.Pressed(input::ACTION_HORN)) {
@@ -603,6 +624,17 @@ int main(void)
                 confetti.erase(std::remove_if(confetti.begin(), confetti.end(),
                                               [](const Confetti &c) { return c.life <= 0.0f; }),
                                confetti.end());
+
+                // Splash physics: same shape as confetti above, world-space
+                // gravity instead of screen-space.
+                for (Splash &s : splashes) {
+                    s.vel.y -= 9.0f * dt;
+                    s.pos = Vector3Add(s.pos, Vector3Scale(s.vel, dt));
+                    s.life -= dt * 1.6f;
+                }
+                splashes.erase(std::remove_if(splashes.begin(), splashes.end(),
+                                              [](const Splash &s) { return s.life <= 0.0f; }),
+                               splashes.end());
             }
 
             Vector3 viewPos = camera.Get().position;
@@ -717,6 +749,10 @@ int main(void)
                         player.DrawGhost(gpos, gheading, Fade(SKYBLUE, 0.45f));
                     }
                     lake.Draw();
+
+                    for (const Splash &s : splashes) {
+                        DrawSphere(s.pos, 0.12f * s.life, Fade(Color{ 220, 235, 245, 255 }, s.life));
+                    }
                 EndMode3D();
 
                 if (playing) {
