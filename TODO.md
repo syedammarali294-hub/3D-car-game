@@ -22,77 +22,109 @@ builds on the one before it.
       `road::Centreline()`, no new assets.
 - [x] HUD: "Checkpoint N/7" readout while a lap is in progress.
 
-### Phase 2 — multiple tracks
+### Phase 2 — multiple tracks — DONE
 
-- [ ] A `Track` data type: name, control points, road width, fence
-      layout, start point. Replace the single hardcoded `CONTROL[]` in
-      `Road.cpp` with a list of tracks.
-- [ ] Built-in tracks: **Small** (short tight loop), **Long** (current
-      circuit), **Longest** (big sweeping loop using the open world).
-- [ ] Track picker in the PLAY / mode-select screen (same pattern as the
-      car picker). Best lap + ghost saved **per track per car**.
-- [ ] Everything that reads the circuit (road mesh, fences, minimap, AI
-      traffic, auto-drive, prop clearance) already goes through
-      `road::Centreline()` — it just needs to rebuild on track change.
+- [x] `track::TrackDef`/`TrackId` (`Track.hpp`/`.cpp`): name, description,
+      control points, fence gaps. Replaced the single hardcoded `CONTROL[]`
+      that used to live directly in `Road.cpp`.
+- [x] Built-in tracks: **Small** (short tight loop, clear of the lake),
+      **Long** (the original circuit), **Longest** (big sweeping loop in
+      the open world).
+- [x] Track picker on the mode-select screen (cycles Small → Long →
+      Longest → each custom `.cgmap` found in the Maps folder).
+- [x] Road mesh, fences, minimap, AI traffic, auto-drive, and prop
+      clearance all already read through `road::Centreline()`, so they
+      rebuild automatically on track change — no per-system wiring needed.
 
-### Phase 3 — fences with gaps
+### Phase 3 — fences with gaps — DONE
 
-- [ ] Re-enable fence collision (undoing the "no fence" change), but
-      fences become **segments with gaps**: each track defines openings
-      (start/end along the centreline) where you can leave the road into
-      the open world.
-- [ ] Gaps drawn visibly (posts end, maybe a gate/sign) so they read as
-      intentional exits, not missing geometry.
+- [x] Fence collision re-enabled, but as **segments with deliberate gaps**:
+      each `TrackDef` carries `fenceGaps` (start/end fractions along the
+      lap) where `Fence::Load`/`ResolveCollisions` skip building/blocking,
+      so leaving the circuit only happens where a track intentionally
+      allows it.
+- [x] Fixed a real visual bug this session: rails between two posts used
+      only their endpoints' terrain height with nothing sampled in
+      between, so a steep local slope stretched a rail into a thin
+      near-vertical sliver pointing into the sky. `Fence::Load` now skips
+      connecting a post pair whose heights differ by more than
+      `MAX_RAIL_RISE` (2.5 units) — the posts themselves are unaffected,
+      only the implausible rail between them is dropped.
 
-### Phase 4 — custom maps + `.map` files
+### Phase 4 — custom maps + `.cgmap` files — DONE
 
-- [ ] A `.map` file format: plain text, name-keyed lines (same robust style
-      as the fixed `settings.cfg`, never positional), versioned header.
-      Holds: track control points, fence segments + gaps, placed props
-      (trees/rocks), placed cars (AI/parked), mountains/hills, map border
-      size, spawn point, world style.
-- [ ] Save/load: maps live in `Documents/3D Car Game/Maps/` by default;
-      **autosave** every N seconds while editing to `<name>.autosave.map`.
-- [ ] Main menu: **PLAY → Custom Map** lists `.map` files in that folder.
-- [ ] **Open a `.map` by double-clicking it**: the game accepts a file
-      path as a command-line argument (`CarGame3D.exe "path.map"`) and
-      jumps straight to car select → drive on that map. Windows file
-      association (registry entry for `.map` → the exe) set up by an
-      optional "Associate .map files" button in Settings, since it writes
-      to the user's registry and should be opt-in, not done silently.
-      (Note: `.map` is a generic extension other software also uses —
-      worth considering `.cgmap` to avoid hijacking it.)
+- [x] `.cgmap` file format (`MapFile.hpp`/`.cpp`): plain text, name-keyed
+      lines, versioned header (`cgmap_version`). Holds track control
+      points, fence gaps, world style, name/description. (Scope note:
+      placed props/AI cars/terrain edits are NOT in the format yet — see
+      Phase 5's "not yet" list below, same reasoning as before.)
+- [x] Save/load: maps live in `Documents/3D Car Game/Maps/` (falls back to
+      a local `maps/` folder next to the exe if that can't be created).
+- [x] Mode-select screen's track picker lists every `.cgmap` in that
+      folder after the 3 built-ins; an **EXPORT .cgmap** button there also
+      saves whichever track is currently selected as a starting point.
+- [x] **Open a `.cgmap` by double-clicking it**: `main()` takes the file
+      path as `argv[1]` and jumps straight to car select on that map
+      (`Menu::StartWithCustomMap`). `FileAssoc.cpp` + an opt-in "Associate
+      .cgmap files" button in Settings registers the Windows file
+      association (never done silently, since it writes to the registry).
 
-### Phase 5 — creative mode (map editor) + admin mode
+### Phase 5 — map editor + admin/spectator mode
 
 - [x] **Admin mode** (toggle in Settings > Car, off by default): `settings::Options::adminMode`,
-      persisted to `options.cfg`.
-- [x] **Minimap teleport gated to admin mode** — in normal play the
-      minimap click-to-teleport is disabled entirely (it's also what
-      breaks laps today, by design — see Phase 1's checkpoint/teleport
-      detection). Only fires when `settings::Get().adminMode` is on.
-- [ ] **Creative mode**: free-fly editor camera, placement tools:
-      road control points (drag to reshape the track live), fence
-      segments + gaps, trees/rocks, parked/AI cars, raise/lower terrain
-      brush for hills/mountains, map border size. Undo, save, test-drive.
-      **Not started.** This is a full in-game editor — its own
-      application-sized feature (new camera mode, drag-to-edit UI for
-      road/fence/terrain, a save path back through the Phase 4 `.cgmap`
-      format) — and deserves its own dedicated session rather than being
-      squeezed in alongside the admin-mode toggle.
+      persisted to `options.cfg`. Gates everything below.
+- [x] **Minimap teleport, NOS refill (F2), unstick (F3)** all gated to
+      admin mode — in normal play none of these are available (teleport in
+      particular is also what breaks lap validity, by design — see Phase
+      1's checkpoint/teleport detection).
+- [x] **Dev console** (backtick removed in favor of `/`, Minecraft-chat
+      style — opens pre-filled with `/`): `Console.hpp`/`.cpp`. Supports
+      Ctrl+V paste. Commands: `/gamemode spectator`, `/gamemode drive`,
+      `/respawn`, `/refillnos`, `/help`. Admin-only; closes itself if
+      admin mode is turned off while open. Typing in it no longer leaks
+      into gameplay hotkeys (pause, F-keys, minimap click) — `Menu::Tick`
+      takes a `suppressHotkeys` flag for exactly this.
+- [x] **Spectator mode** (`Spectator.hpp`/`.cpp`): free-fly admin camera,
+      reuses the player's own drive-key bindings for horizontal movement,
+      Shift/Ctrl for straight up/down, RMB-drag to look. Car freezes in
+      place while spectating; engine sound simply isn't updated, which is
+      all it takes to go silent (see `Engine.hpp`'s own doc comment).
+- [x] **Standalone Map Editor** (`MapEditorMain.cpp`, separate `MapEditor`
+      CMake target/exe, own Desktop shortcut) — a top-down 2D editor, not
+      the originally-envisioned in-3D free-fly editor: place/drag road
+      control points, punch fence gaps by clicking along the loop, cycle
+      world style, save/open the exact same `.cgmap` files the game reads.
+      `P` toggles a preview overlay of the real Catmull-Rom curve
+      (`Road.cpp`'s actual algorithm), not just the straight placement
+      lines. This satisfies the "separate app to build maps, like a
+      Unity/Unreal-style editor" ask via a 2D tool rather than a 3D one —
+      genuinely simpler to get right, and done.
+- [ ] **Not done / not in `.cgmap` yet**: placing trees/rocks/AI or parked
+      cars per-map, a raise/lower terrain brush, map border size, undo. The
+      editor only edits what the file format currently holds (road shape +
+      fence gaps + world style) — `.cgmap` would need extending before any
+      of this has somewhere to write to, and terrain would need to become
+      data-driven (see below) before a brush means anything. Still a real,
+      separately-sized piece of work if wanted.
 - [ ] Terrain becomes data-driven (base noise + per-map edits) instead of
-      only the hardcoded `HeightAt()` styles — needed for the terrain brush.
-      Blocked on Creative mode above; not started.
+      only the hardcoded `HeightAt()` styles — needed for the terrain
+      brush above. Not started.
 
 ### Order and why
 
 1 → 2 → 3 → 4 → 5. Laps must be trustworthy before there are several
 tracks to set records on; tracks must be data (Phase 2) before a file
 format can save them (Phase 4); and the editor (Phase 5) is just a UI that
-writes that same data. Phase 5 is the biggest by far (an editor is its own
-application inside the game) and should be split further when we get there.
+writes that same data.
 
-Status as of 2026-10-15. Rewritten to reflect what's actually true of the
+**All 5 phases are done as of 2026-10-16**, Phase 5 delivered as a
+standalone 2D Map Editor + admin/spectator mode + dev console rather than
+the originally-sketched in-3D free-fly editor -- see Phase 5 above for
+exactly what that does and doesn't cover. What's left under it (prop/AI
+placement, a terrain brush, undo) is real, scoped, separate future work,
+not something quietly skipped.
+
+Status as of 2026-10-16. Rewritten to reflect what's actually true of the
 code right now — the previous version had accumulated a lot of stale
 "open" items that were already fixed in later sessions.
 
@@ -177,10 +209,13 @@ frame. Not started yet:
 
 - [x] **Water, nature, fence.** Water got a real scrolling ripple-texture
       layer (downloaded CC BY 4.0 textures) on top of the existing
-      procedural wave shader. Nature got 4 real oak tree models (same CC
-      BY 4.0 source, decimated, ~12% of tree spawns). Fence: collision
-      removed per explicit request ("open world everywhere no fence") --
-      still drawn, just doesn't block the car anymore.
+      procedural wave shader -- also fixed this session: the water plane
+      spans the whole world and was showing through at any terrain dip
+      below sea level, not just the lake; `Terrain::HeightAt` now smooth-
+      clamps everywhere outside the lake's own falloff. Nature got 4 real
+      oak tree models (same CC BY 4.0 source, decimated, ~12% of tree
+      spawns). Fence collision is back (see Phase 3 above) as per-track
+      segments with deliberate gaps, not the old all-or-nothing toggle.
 - [x] **Open world.** WORLD_SIZE 1600 -> 4000 (~6.25x area), mountain ring
       pushed out to match, terrain tile grid and prop count scaled with
       it. The circuit itself is unchanged. This is the bounded, safe part
@@ -196,10 +231,6 @@ frame. Not started yet:
       happens to the fixed circuit/lap-timer gameplay in a world that's no
       longer a bounded, fully-loaded map. Deliberately not attempted
       blind in one pass -- deserves its own dedicated session.
-- [ ] **A second circuit / track selection.** Everything reads the circuit
-      through `road::Centreline()`/`road::StartPoint()` — a second
-      `CONTROL` point set + a track picker (same UI pattern as the car
-      picker) is mostly data, not new systems.
 - [ ] **Traffic cones / a slalom or time-trial mode**, reusing existing
       prop + collision systems.
 - [ ] **Desert flora.** Needs an actual cactus/dead-scrub asset — the
@@ -228,6 +259,18 @@ frame. Not started yet:
 - [x] Garage car-load caching (see above).
 - [x] Git repository initialized, pushed to GitHub (private,
       `syedammarali294-hub/3D-car-game`).
+- [x] Fixed: both exes now call `ChangeDirectory(GetApplicationDirectory())`
+      first thing in `main()`. Without it, double-clicking a `.cgmap` file
+      (see Phase 4) made Windows set the working directory to wherever
+      that file lives instead of the exe's own folder -- every relative
+      shader/texture/model load (`"shaders/..."`, `"assets/..."`) then
+      silently failed and fell back to raylib's default white
+      material/texture, which is why the ground, trees, and cars would go
+      blank white instead of erroring loudly.
+- [x] `tools/pushbutton/`: a tiny `127.0.0.1`-only Python server + one-page
+      UI (one big red button) that runs `git add -A && git commit && git
+      push` on click and streams the output back. Not part of either exe
+      build; run with `python tools/pushbutton/server.py`.
 
 ## Open — audio
 
