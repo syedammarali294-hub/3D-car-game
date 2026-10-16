@@ -95,12 +95,15 @@ void RowLabel(const char *text, float x, float y)
 
 } // namespace
 
-Screen Menu::Tick(input::Input &input, int screenW, int screenH, bool hasSceneBehind)
+Screen Menu::Tick(input::Input &input, int screenW, int screenH, bool hasSceneBehind, bool suppressHotkeys)
 {
     if (screen_ == SCREEN_PLAYING) {
         // ESC and P both pause; neither quits. (main() clears raylib's default
-        // ESC-closes-the-window binding so this can own the key.)
-        if (IsKeyPressed(KEY_ESCAPE) || IsKeyPressed(KEY_P)) screen_ = SCREEN_PAUSED;
+        // ESC-closes-the-window binding so this can own the key.) Suppressed
+        // while the dev console is open and capturing keystrokes -- typing
+        // "spectator" has a P in it, and that P should go into the console's
+        // text, not pause the game out from under it.
+        if (!suppressHotkeys && (IsKeyPressed(KEY_ESCAPE) || IsKeyPressed(KEY_P))) screen_ = SCREEN_PAUSED;
         return screen_;
     }
 

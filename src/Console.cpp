@@ -15,6 +15,21 @@ void Console::Update()
     }
     if (IsKeyPressed(KEY_BACKSPACE) && !input_.empty()) input_.pop_back();
 
+    // Ctrl+V paste -- GetCharPressed() only ever reports actual typed
+    // keystrokes, not a paste, so clipboard text has to be pulled in
+    // explicitly. Non-printable/control characters (newlines included,
+    // since a command is always one line) are stripped rather than
+    // breaking the input line.
+    bool ctrl = IsKeyDown(KEY_LEFT_CONTROL) || IsKeyDown(KEY_RIGHT_CONTROL);
+    if (ctrl && IsKeyPressed(KEY_V)) {
+        const char *clip = GetClipboardText();
+        if (clip != nullptr) {
+            for (const char *c = clip; *c != '\0' && input_.size() < 96; c++) {
+                if (*c >= 32 && *c < 127) input_ += *c;
+            }
+        }
+    }
+
     if (IsKeyPressed(KEY_ENTER)) {
         if (!input_.empty()) {
             log_.push_back("> " + input_);

@@ -29,7 +29,7 @@ enum Screen {
 // outside it.
 class Menu {
 public:
-    Screen Tick(input::Input &input, int screenW, int screenH, bool hasSceneBehind);
+    Screen Tick(input::Input &input, int screenW, int screenH, bool hasSceneBehind, bool suppressHotkeys = false);
 
     int SelectedCar() const { return selectedCar_; }
     int SelectedColorIndex() const { return selectedColorIndex_; }

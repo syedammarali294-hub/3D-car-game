@@ -50,7 +50,7 @@ const char *FormatLapTime(float seconds)
 // the road or into the lake/mountains). static locals persist the
 // fading marker ring between frames -- fine since this is only ever
 // called from the one place in main().
-void DrawMinimap(car::Car &player, int screenW, const traffic::AiTraffic *aiTraffic)
+void DrawMinimap(car::Car &player, int screenW, const traffic::AiTraffic *aiTraffic, bool inputBlocked)
 {
     const auto &samples = road::Centreline();
     if (samples.empty()) return;
@@ -112,7 +112,8 @@ void DrawMinimap(car::Car &player, int screenW, const traffic::AiTraffic *aiTraf
     // large-jump lap-invalidation check (see Phase 1) -- that's intentional,
     // but it means this can't be left available in normal play without a
     // free way to fake a lap. Admin mode is the explicit opt-in for it.
-    if (settings::Get().adminMode && CheckCollisionPointRec(mouse, mapRect) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+    if (!inputBlocked && settings::Get().adminMode && CheckCollisionPointRec(mouse, mapRect) &&
+        IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
         float wx = cx + ((mouse.x - mapX) / mapSize - 0.5f) * span;
         float wz = cz + ((mouse.y - mapY) / mapSize - 0.5f) * span;
         const road::Sample &target = road::NearestSample(wx, wz);
@@ -213,7 +214,8 @@ void DrawFirstDriveHint(const input::Input &input, float hintTimer, int screenW,
 void DrawHud(car::Car &player, const cam::GameCamera &camera, int visibleProps,
              bool showStats, const input::Input &input, int lapCount, float lapTime, float bestLap,
              int nextCheckpoint, int checkpointCount, bool lapInvalid,
-             float hintTimer, float driftPopupTimer, float driftPopupScore, const traffic::AiTraffic *aiTraffic)
+             float hintTimer, float driftPopupTimer, float driftPopupScore, const traffic::AiTraffic *aiTraffic,
+             bool consoleOpen = false)
 {
     // Shows direction rather than hiding it: a flipped sign while coasting
     // backwards used to read as a plain, still-positive speed.
@@ -300,7 +302,7 @@ void DrawHud(car::Car &player, const cam::GameCamera &camera, int visibleProps,
                  config::SCREEN_WIDTH - 220, 70, 18, Fade(Color{ 255, 210, 90, 255 }, 0.9f));
     }
 
-    DrawMinimap(player, config::SCREEN_WIDTH, aiTraffic);
+    DrawMinimap(player, config::SCREEN_WIDTH, aiTraffic, consoleOpen);
 
     // Drift score -- live while sliding, held briefly after it ends so the
     // final number is actually readable instead of vanishing instantly.
@@ -605,20 +607,28 @@ int main(int argc, char **argv)
                 trafficLoaded = false;
             }
 
-            if (IsKeyPressed(KEY_F1)) showStats = !showStats;
-
             // Admin-mode debug utilities (see Settings.hpp for why these are
             // gated -- same reasoning as the minimap teleport above: they'd
-            // undermine normal play if left always-on).
-            if (settings::Get().adminMode) {
-                if (IsKeyPressed(KEY_F2)) player.RefillBoost();
-                if (IsKeyPressed(KEY_F3)) player.RespawnNearestRoad();
-                if (IsKeyPressed(KEY_GRAVE)) devConsole.Toggle();
-            } else if (devConsole.IsOpen()) {
+            // undermine normal play if left always-on). All suppressed while
+            // the console is open -- it owns the keyboard then, the same
+            // way typing "spectator" shouldn't also hit F1/F2/F3 shortcuts
+            // if any of those letters overlapped one.
+            if (!devConsole.IsOpen()) {
+                if (IsKeyPressed(KEY_F1)) showStats = !showStats;
+                if (settings::Get().adminMode) {
+                    if (IsKeyPressed(KEY_F2)) player.RefillBoost();
+                    if (IsKeyPressed(KEY_F3)) player.RespawnNearestRoad();
+                    // "/" opens the console, Minecraft-chat style -- it
+                    // starts pre-filled with "/" so there's no ambiguity
+                    // about whether you're typing a command.
+                    if (IsKeyPressed(KEY_SLASH)) devConsole.Open();
+                }
+            }
+            if (settings::Get().adminMode == false && devConsole.IsOpen()) {
                 // adminMode got turned off (e.g. Settings > Car) while the
                 // console was open -- don't leave an inaccessible console
                 // capturing all keyboard input.
-                devConsole.Toggle();
+                devConsole.Close();
             }
             devConsole.Update();
 
@@ -962,7 +972,8 @@ int main(int argc, char **argv)
                     if (!spectating) {
                         DrawHud(player, camera, scenery.GetVisibleCount(), showStats, input, lapCount, lapTime, bestLap,
                                nextCheckpoint, CHECKPOINT_COUNT, lapInvalid,
-                               hintTimer, lastDriftPopupTimer, lastDriftPopupScore, trafficLoaded ? &aiTraffic : nullptr);
+                               hintTimer, lastDriftPopupTimer, lastDriftPopupScore, trafficLoaded ? &aiTraffic : nullptr,
+                               devConsole.IsOpen());
                         DrawFirstDriveHint(input, hintTimer, config::SCREEN_WIDTH, config::SCREEN_HEIGHT);
                     } else {
                         DrawText("SPECTATING", 24, 24, 26, Color{ 120, 220, 255, 255 });
@@ -990,7 +1001,7 @@ int main(int argc, char **argv)
 
             // Draws the active menu screen (and handles its clicks) when not
             // playing; while playing it only watches for ESC.
-            ui.Tick(input, config::SCREEN_WIDTH, config::SCREEN_HEIGHT, carLoaded);
+            ui.Tick(input, config::SCREEN_WIDTH, config::SCREEN_HEIGHT, carLoaded, devConsole.IsOpen());
         EndTextureMode();
 
         // Blit the fixed-resolution frame into the real window, scaled up

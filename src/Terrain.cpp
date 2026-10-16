@@ -84,15 +84,26 @@ float HeightAt(float x, float z)
     // lake with no warning. Clamping everywhere outside the lake's own
     // falloff back above the waterline keeps the lake the only place that
     // floods, without having to touch Water.cpp's plane itself.
+    // Smooth max (not a hard fmaxf) against the floor -- a hard clamp
+    // leaves a C1 kink in the height field wherever noise happened to dip
+    // below it, and NormalAt()'s finite-difference sampling turns that
+    // kink into a visible lighting seam (grass reading as blown-out white
+    // right at the clamp boundary) instead of the hidden ground dip it
+    // used to be. This stays smooth everywhere, including right at the
+    // lake's own edge.
+    auto smoothMaxFloor = [](float v, float lo, float softness) {
+        float d = v - lo;
+        return lo + 0.5f * (d + sqrtf(d * d + softness * softness));
+    };
     const float floor = WATER_LEVEL + 1.0f;
     if (g_style != STYLE_DESERT) {
         float dx = x - LAKE_X;
         float dz = z - LAKE_Z;
         float lakeT = SmoothStep01(1.0f - sqrtf(dx * dx + dz * dz) / LAKE_RADIUS);
         h -= lakeT * 17.0f;
-        h = Lerp(fmaxf(h, floor), h, lakeT);
+        h = Lerp(smoothMaxFloor(h, floor, 2.0f), h, lakeT);
     } else {
-        h = fmaxf(h, floor);
+        h = smoothMaxFloor(h, floor, 2.0f);
     }
 
     // Keep the spawn area flat so the car always starts on dry, level ground.

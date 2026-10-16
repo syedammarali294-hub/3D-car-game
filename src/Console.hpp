@@ -12,7 +12,11 @@ namespace console {
 
 class Console {
 public:
-    void Toggle() { open_ = !open_; if (open_) input_.clear(); }
+    // Opens pre-filled with "/" (same as typing the key that opened it),
+    // so the console always reads as "you're writing a command" the
+    // moment it appears, the way Minecraft's chat does for "/".
+    void Open() { open_ = true; input_ = "/"; }
+    void Close() { open_ = false; input_.clear(); }
     bool IsOpen() const { return open_; }
 
     // Captures keystrokes into the input line when open; Enter queues the
