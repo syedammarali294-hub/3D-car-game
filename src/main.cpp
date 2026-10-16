@@ -41,7 +41,12 @@ const char *FormatLapTime(float seconds)
 // which way it's heading -- drawn from road::Centreline() samples, which
 // already exist for fence/collision work, so this is pure 2D projection,
 // no new world data.
-void DrawMinimap(const car::Car &player, int screenW, const traffic::AiTraffic *aiTraffic)
+// Click anywhere on the minimap to instantly teleport there (snapped to
+// the nearest point on the circuit, so a click never drops the car off
+// the road or into the lake/mountains). static locals persist the
+// fading marker ring between frames -- fine since this is only ever
+// called from the one place in main().
+void DrawMinimap(car::Car &player, int screenW, const traffic::AiTraffic *aiTraffic)
 {
     const auto &samples = road::Centreline();
     if (samples.empty()) return;
@@ -90,6 +95,28 @@ void DrawMinimap(const car::Car &player, int screenW, const traffic::AiTraffic *
     Vector2 tip = Vector2{ dot.x + sinf(h) * 7.0f, dot.y + cosf(h) * 7.0f };
     DrawCircleV(dot, 4.0f, Color{ 120, 230, 140, 255 });
     DrawLineEx(dot, tip, 2.0f, Color{ 120, 230, 140, 255 });
+
+    // Click-to-teleport: GetMousePosition() already comes back in this same
+    // fixed logical space (main.cpp applies SetMouseScale/Offset once per
+    // frame for exactly this reason -- see the fullscreen letterboxing
+    // code), so no extra conversion is needed beyond inverting toMap().
+    static Vector2 markerPos{};
+    static float markerTimer = 0.0f;
+    Rectangle mapRect{ mapX - 6.0f, mapY - 6.0f, mapSize + 12.0f, mapSize + 12.0f };
+    Vector2 mouse = GetMousePosition();
+    if (CheckCollisionPointRec(mouse, mapRect) && IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+        float wx = cx + ((mouse.x - mapX) / mapSize - 0.5f) * span;
+        float wz = cz + ((mouse.y - mapY) / mapSize - 0.5f) * span;
+        const road::Sample &target = road::NearestSample(wx, wz);
+        player.Respawn(target.position, atan2f(target.forward.x, target.forward.z));
+        markerPos = toMap(target.position.x, target.position.z);
+        markerTimer = 1.0f;
+    }
+    if (markerTimer > 0.0f) {
+        markerTimer -= GetFrameTime();
+        float ringR = (1.0f - markerTimer) * 14.0f + 3.0f;
+        DrawCircleLines((int)markerPos.x, (int)markerPos.y, ringR, Fade(Color{ 255, 210, 90, 255 }, markerTimer));
+    }
 }
 
 void DrawFirstDriveHint(const input::Input &input, float hintTimer, int screenW, int screenH)
@@ -129,7 +156,7 @@ void DrawFirstDriveHint(const input::Input &input, float hintTimer, int screenW,
     }
 }
 
-void DrawHud(const car::Car &player, const cam::GameCamera &camera, int visibleProps,
+void DrawHud(car::Car &player, const cam::GameCamera &camera, int visibleProps,
              bool showStats, const input::Input &input, int lapCount, float lapTime, float bestLap,
              float hintTimer, float driftPopupTimer, float driftPopupScore, const traffic::AiTraffic *aiTraffic)
 {
@@ -431,6 +458,7 @@ int main(void)
                 loadedCarIndex = ui.SelectedCar();
                 loadedColorIndex = ui.SelectedColorIndex();
                 carLoaded = true;
+                topSpeedRecord = upgrades::Get(loadedCarIndex).bestTopSpeed; // persists across sessions, per car
 
                 if (!everPlayed) {
                     everPlayed = true;
@@ -551,11 +579,12 @@ int main(void)
             }
 
             {
-                // Session top-speed record.
+                // Persistent (not just session) top-speed record, per car.
                 float curSpeed = fabsf(player.GetSpeed());
                 if (curSpeed > topSpeedRecord + 0.01f) {
                     topSpeedRecord = curSpeed;
                     topSpeedPopupTimer = 1.6f;
+                    upgrades::ReportSpeed(loadedCarIndex, curSpeed);
                 } else if (topSpeedPopupTimer > 0.0f) {
                     topSpeedPopupTimer -= dt;
                 }

@@ -4,6 +4,7 @@
 #include "raylib.h"
 #include <cstdio>
 #include <cstring>
+#include <string>
 
 namespace input {
 
@@ -24,6 +25,41 @@ void Input::ResetToDefaults()
     keys_[ACTION_AUTODRIVE] = KEY_F;
 }
 
+namespace {
+
+// Stable, machine-readable token per action -- separate from ActionLabel()
+// (which has spaces/parens meant for display, not parsing) and, critically,
+// independent of the action's position in the enum. The old format stored
+// bare key codes in raw Action-enum order with no names at all; inserting
+// ACTION_REVERSE into the middle of that enum for this session's gear
+// feature silently shifted every binding after it in any save file written
+// before that change (boost's key loaded into reverse's slot, horn's into
+// boost's, and so on) -- a real, reproduced bug: NOS appeared to stop doing
+// anything because it had silently picked up an unrelated/unused key.
+// Keying by name instead means future enum insertions can never do this
+// again -- an action simply keeps its own saved key, in any file order.
+const char *ActionToken(Action action)
+{
+    switch (action) {
+        case ACTION_ACCELERATE:  return "accelerate";
+        case ACTION_BRAKE:       return "brake";
+        case ACTION_STEER_LEFT:  return "steer_left";
+        case ACTION_STEER_RIGHT: return "steer_right";
+        case ACTION_HANDBRAKE:   return "handbrake";
+        case ACTION_RESET:       return "reset";
+        case ACTION_CAMERA:      return "camera";
+        case ACTION_GEAR_UP:     return "gear_up";
+        case ACTION_GEAR_DOWN:   return "gear_down";
+        case ACTION_REVERSE:     return "reverse";
+        case ACTION_BOOST:       return "boost";
+        case ACTION_HORN:        return "horn";
+        case ACTION_AUTODRIVE:   return "autodrive";
+        default: return "unknown";
+    }
+}
+
+} // namespace
+
 void Input::Load()
 {
     ResetToDefaults();
@@ -33,22 +69,54 @@ void Input::Load()
     char *text = LoadFileText(config::SETTINGS_FILE);
     if (text == nullptr) return;
 
-    // Space-separated key codes in Action order. Older files only have the
-    // first 7 (before the gear keys existed) -- those still load, and the
-    // new actions keep their defaults.
-    int values[ACTION_COUNT] = { 0 };
-    int parsed = 0;
+    // "token value" per line. Also accepts the old bare-integer-per-line
+    // format (no name) for one release, so an existing save isn't just
+    // silently discarded -- read positionally same as before, but note
+    // that format is exactly what caused the bug above, so Save() below
+    // never writes it again; the first save after loading an old file
+    // upgrades it to the name-keyed format.
+    char token[32];
+    int value;
+    bool anyNamed = false;
     const char *p = text;
-    while (parsed < ACTION_COUNT) {
-        int consumed = 0;
-        if (sscanf(p, "%d%n", &values[parsed], &consumed) != 1) break;
-        p += consumed;
-        parsed++;
+    while (*p) {
+        if (sscanf(p, "%31s %d", token, &value) == 2) {
+            bool matched = false;
+            for (int i = 0; i < ACTION_COUNT; i++) {
+                if (strcmp(token, ActionToken((Action)i)) == 0) {
+                    keys_[i] = value;
+                    matched = true;
+                    anyNamed = true;
+                    break;
+                }
+            }
+            (void)matched;
+        }
+        const char *nl = strchr(p, '\n');
+        if (!nl) break;
+        p = nl + 1;
     }
 
-    if (parsed >= 7) {
-        for (int i = 0; i < parsed; i++) {
-            if (values[i] > 0) keys_[i] = values[i];
+    if (!anyNamed) {
+        // Old positional format: bare key codes in enum order, one line's
+        // worth of space-separated ints. Only trustworthy for exactly the
+        // enum order it was written against -- reload defaults and parse
+        // positionally as a last resort rather than silently keep
+        // whatever Load() partially wrote above from failed name matches.
+        ResetToDefaults();
+        int values[ACTION_COUNT] = { 0 };
+        int parsed = 0;
+        const char *q = text;
+        while (parsed < ACTION_COUNT) {
+            int consumed = 0;
+            if (sscanf(q, "%d%n", &values[parsed], &consumed) != 1) break;
+            q += consumed;
+            parsed++;
+        }
+        if (parsed >= 7) {
+            for (int i = 0; i < parsed; i++) {
+                if (values[i] > 0) keys_[i] = values[i];
+            }
         }
     }
 
@@ -57,12 +125,13 @@ void Input::Load()
 
 void Input::Save() const
 {
-    char buffer[160];
-    int n = 0;
+    std::string buffer;
+    char line[48];
     for (int i = 0; i < ACTION_COUNT; i++) {
-        n += snprintf(buffer + n, sizeof(buffer) - n, i ? " %d" : "%d", keys_[i]);
+        snprintf(line, sizeof(line), "%s %d\n", ActionToken((Action)i), keys_[i]);
+        buffer += line;
     }
-    SaveFileText(config::SETTINGS_FILE, buffer);
+    SaveFileText(config::SETTINGS_FILE, (char *)buffer.c_str());
 }
 
 bool Input::Down(Action action) const

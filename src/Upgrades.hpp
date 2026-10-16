@@ -16,6 +16,7 @@ struct CarUpgrade {
     int handling = 0;
     int nitro = 0;
     float totalMeters = 0.0f; // persistent odometer -- lifetime distance driven in this car
+    float bestTopSpeed = 0.0f; // persistent record top speed (m/s) for this car, across all sessions
 };
 
 // Indexed by the same car index as cardb::Roster(). Grows automatically if
@@ -26,6 +27,11 @@ CarUpgrade &Get(int carIndex);
 // -- cheap (just a float add), does not itself touch disk. Save() still
 // has to be called periodically/at shutdown for it to actually persist.
 void AddDistance(int carIndex, float meters);
+
+// Updates the car's persistent top-speed record if speedMs beats it.
+// Returns true on a new record (caller decides what to do with that, e.g.
+// the existing on-screen "NEW TOP SPEED" popup).
+bool ReportSpeed(int carIndex, float speedMs);
 
 void Load();
 void Save();
