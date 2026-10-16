@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>PUSH</title>
+<style>
+  :root { color-scheme: dark; }
+  html, body {
+    margin: 0; height: 100%; width: 100%;
+    background: radial-gradient(circle at 50% 40%, #241014, #0a0506 75%);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    overflow: hidden; font-family: Arial, Helvetica, sans-serif;
+  }
+  #status {
+    position: absolute; top: 24px; left: 50%; transform: translateX(-50%);
+    color: #ff8a8a; font-size: 16px; letter-spacing: 1px; opacity: 0.9;
+    text-shadow: 0 0 12px rgba(255,60,60,0.6);
+    max-width: 90vw; text-align: center; white-space: pre-wrap;
+  }
+  .btnwrap { position: relative; }
+  button#push {
+    width: 320px; height: 320px; border-radius: 50%;
+    border: none; cursor: pointer;
+    background: radial-gradient(circle at 35% 30%, #ff6b6b, #d81e1e 55%, #7a0d0d 100%);
+    box-shadow:
+      0 18px 0 #5a0808,
+      0 24px 40px rgba(0,0,0,0.6),
+      inset 0 -10px 25px rgba(0,0,0,0.35),
+      inset 0 10px 25px rgba(255,255,255,0.25);
+    color: #fff; font-size: 54px; font-weight: 900; letter-spacing: 4px;
+    text-shadow: 0 3px 6px rgba(0,0,0,0.5);
+    transition: transform 0.06s ease, box-shadow 0.06s ease, filter 0.2s ease;
+    user-select: none;
+  }
+  button#push:active { transform: translateY(14px);
+    box-shadow:
+      0 4px 0 #5a0808,
+      0 8px 16px rgba(0,0,0,0.6),
+      inset 0 -6px 18px rgba(0,0,0,0.45),
+      inset 0 6px 16px rgba(255,255,255,0.15);
+  }
+  button#push:disabled { filter: grayscale(0.6) brightness(0.7); cursor: wait; }
+  .ring {
+    position: absolute; left: 50%; top: 50%; width: 320px; height: 320px;
+    border-radius: 50%; border: 4px solid rgba(255,80,80,0.8);
+    transform: translate(-50%, -50%) scale(1); opacity: 0; pointer-events: none;
+  }
+  .ring.animate { animation: pulse 0.6s ease-out forwards; }
+  @keyframes pulse {
+    0%   { transform: translate(-50%, -50%) scale(1);   opacity: 0.8; }
+    100% { transform: translate(-50%, -50%) scale(1.6); opacity: 0; }
+  }
+  #log {
+    margin-top: 18px; color: #bbb; font-size: 13px; max-width: 80vw;
+    max-height: 22vh; overflow-y: auto; white-space: pre-wrap;
+    font-family: Consolas, monospace; text-align: left;
+  }
+</style>
+</head>
+<body>
+  <div id="status">idle</div>
+  <div class="btnwrap">
+    <div class="ring" id="ring"></div>
+    <button id="push">PUSH</button>
+  </div>
+  <div id="log"></div>
+<script>
+  const btn = document.getElementById('push');
+  const ring = document.getElementById('ring');
+  const statusEl = document.getElementById('status');
+  const logEl = document.getElementById('log');
+
+  function beep(ok) {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(ok ? 440 : 150, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(ok ? 880 : 80, ctx.currentTime + 0.12);
+      gain.gain.setValueAtTime(0.18, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.start(); osc.stop(ctx.currentTime + 0.15);
+    } catch (e) {}
+  }
+
+  btn.addEventListener('click', async () => {
+    btn.disabled = true;
+    statusEl.textContent = 'pushing...';
+    ring.classList.remove('animate'); void ring.offsetWidth; ring.classList.add('animate');
+
+    try {
+      const res = await fetch('/push', { method: 'POST' });
+      const data = await res.json();
+      statusEl.textContent = data.ok ? 'pushed.' : 'push failed -- see log below';
+      logEl.textContent = data.output || '(no output)';
+      beep(data.ok);
+    } catch (e) {
+      statusEl.textContent = 'could not reach the push server';
+      logEl.textContent = String(e);
+      beep(false);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+</script>
+</body>
+</html>
