@@ -18,8 +18,14 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(raylib)
 
+if (WIN32)
+    set(CARGAME_RC src/app.rc)
+    set(MAPEDITOR_RC src/mapeditor.rc)
+endif()
+
 add_executable(CarGame3D
     src/main.cpp
+    ${CARGAME_RC}
     src/AiTraffic.cpp
     src/Camera.cpp
     src/Car.cpp
@@ -70,6 +76,7 @@ add_executable(MapEditor
     src/MapEditorMain.cpp
     src/MapFile.cpp
     src/Track.cpp
+    ${MAPEDITOR_RC}
 )
 target_link_libraries(MapEditor PRIVATE raylib)
 if (WIN32)

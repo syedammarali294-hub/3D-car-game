@@ -1,8 +1,31 @@
-1.5.0
+1.6.0
 
-Build date: 2026-10-15
+Build date: 2026-10-16
 
 ## Changelog
+
+### 1.6.0 - 2026-10-16
+- Added: 3 tracks (Small/Long/Longest), 8-checkpoint lap validation that
+  catches teleport/respawn cheating, fences with deliberate gaps instead
+  of no collision at all.
+- Added: `.cgmap` custom track file format, save/export/open from the
+  Maps folder, double-click-to-open file association.
+- Added: admin mode (Settings > Car) gating a dev console (`/` to open,
+  Minecraft-chat style), spectator free-fly camera (`/gamemode
+  spectator`), NOS refill/unstick/minimap-teleport debug utilities.
+- Added: standalone Map Editor (separate exe + Desktop shortcut) -- a
+  top-down 2D tool for placing road control points and fence gaps,
+  saving/opening the same `.cgmap` files the game reads, with a live
+  preview of the real in-game road curve.
+- Fixed: double-clicking a `.cgmap` file set the working directory to
+  that file's folder instead of the exe's own, silently breaking every
+  relative shader/asset load (ground/trees/cars rendering blank white).
+- Fixed: the world's water plane showing through at any terrain dip
+  below sea level, not just the intended lake.
+- Fixed: fence rails stretching into stray near-vertical slivers on
+  steep local terrain.
+- Fixed: the dev console leaking keystrokes into gameplay hotkeys
+  (e.g. typing "spectator" triggering pause).
 
 ### 1.5.0 - 2026-10-15
 - Persistent per-car odometer: lifetime distance driven, saved to upgrades.cfg
