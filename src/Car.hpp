@@ -30,6 +30,7 @@ public:
     float GetTripKm() const { return tripMeters_ / 1000.0f; }
     bool IsInWater() const { return inWater_; }
     bool JustHitObstacle() const { return justHit_; } // true only the one frame contact begins
+    bool JustEnteredWater() const { return justEnteredWater_; } // true only the one frame it crosses WATER_LEVEL
     float GetBoost() const { return boost_; }   // 0..1 remaining NOS fuel
     bool IsBoosting() const { return boosting_; }
     bool IsDrifting() const { return drifting_; }
@@ -89,6 +90,7 @@ private:
     bool driftJustEnded_ = false;
     bool wasBlocked_ = false;
     bool justHit_ = false;
+    bool justEnteredWater_ = false;
 
     int gear_ = 1;
     float shiftTimer_ = 0.0f; // torque is cut while > 0, so a shift is felt

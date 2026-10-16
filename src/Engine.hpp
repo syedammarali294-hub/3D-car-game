@@ -47,4 +47,11 @@ void PlayCollisionThump(float impactFactor);
 // Two-tone synthesised horn honk.
 void PlayHorn();
 
+// One-shot synthesised splash, played the frame the car's position first
+// drops below WATER_LEVEL. speedFactor (0..1, current speed / top speed)
+// scales it the same way PlayCollisionThump scales with impact -- a car
+// that eases into the lake at a crawl shouldn't sound the same as one that
+// launches in at full speed.
+void PlayWaterSplash(float speedFactor);
+
 } // namespace audio

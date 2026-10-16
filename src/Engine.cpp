@@ -240,4 +240,49 @@ void PlayHorn()
     UnloadWave(wave); // see PlayCollisionThump -- same deliberate one-shot leak
 }
 
+void PlayWaterSplash(float speedFactor)
+{
+    const settings::Options &o = settings::Get();
+    if (!o.soundOn) return;
+    speedFactor = Clamp(speedFactor, 0.0f, 1.0f);
+
+    const int frames = (int)(SAMPLE_RATE * 0.55f); // longer than a collision thump -- a splash settles, it doesn't just stop
+    Wave wave{};
+    wave.frameCount = frames;
+    wave.sampleRate = SAMPLE_RATE;
+    wave.sampleSize = 16;
+    wave.channels = 1;
+    short *data = (short *)MemAlloc(frames * sizeof(short));
+
+    // Sharp noise burst for the impact, a slower low-frequency "glug" wobble
+    // underneath for the settle -- no real lowpass filter in this synth
+    // (see WhiteNoise()/Saw() above), so the watery character comes from
+    // that low wobble rather than filtered noise the way a real splash
+    // sound would be built.
+    double glugPhase = 0.0;
+    double glugStep = (3.5 + speedFactor * 2.5) / SAMPLE_RATE;
+    for (int i = 0; i < frames; i++) {
+        float t = (float)i / (float)frames;
+        // Fast attack, slower decay than the collision thump -- water
+        // doesn't stop moving the instant the car's in it.
+        float burstEnv = powf(1.0f - t, 4.0f);
+        float glugEnv = (1.0f - t) * (1.0f - t);
+
+        glugPhase += glugStep;
+        if (glugPhase >= 1.0) glugPhase -= 1.0;
+        float glug = sinf((float)glugPhase * 2.0f * PI) * 0.35f;
+
+        float noise = WhiteNoise() * (0.6f + speedFactor * 0.4f);
+        float s = noise * burstEnv + glug * glugEnv;
+        s = Clamp(s, -1.0f, 1.0f);
+        data[i] = (short)(s * 24000.0f);
+    }
+    wave.data = data;
+
+    Sound sound = LoadSoundFromWave(wave);
+    SetSoundVolume(sound, o.effects);
+    PlaySound(sound);
+    UnloadWave(wave); // see PlayCollisionThump -- same deliberate one-shot leak
+}
+
 } // namespace audio

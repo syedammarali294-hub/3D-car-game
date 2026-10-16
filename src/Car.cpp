@@ -382,7 +382,9 @@ void Car::Update(float dt, const input::Input &input, const world::World &world,
 
     position_.y = terrain::HeightAt(position_.x, position_.z);
     groundNormal_ = terrain::NormalAt(position_.x, position_.z);
+    bool wasInWater = inWater_;
     inWater_ = (position_.y < terrain::WATER_LEVEL);
+    justEnteredWater_ = inWater_ && !wasInWater;
 
     tripMeters_ += fabsf(speed_) * dt;
     upgrades::AddDistance(carIndex_, fabsf(speed_) * dt);
@@ -460,6 +462,7 @@ void Car::UpdateAutoDrive(float dt)
     groundNormal_ = terrain::NormalAt(position_.x, position_.z);
     heading_ = atan2f(fwd.x, fwd.z);
     inWater_ = false;
+    justEnteredWater_ = false;
 
     // Cosmetic follow-through so the HUD/engine note don't just freeze.
     int gearCount = spec.gears;

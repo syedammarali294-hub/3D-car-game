@@ -513,6 +513,10 @@ int main(void)
                     audio::PlayCollisionThump(Clamp(speedFactor, 0.0f, 1.0f));
                 }
 
+                if (player.JustEnteredWater()) {
+                    audio::PlayWaterSplash(Clamp(speedFactor, 0.0f, 1.0f));
+                }
+
                 if (input.Pressed(input::ACTION_HORN)) {
                     audio::PlayHorn();
                 }
