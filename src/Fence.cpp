@@ -19,8 +19,18 @@ constexpr float RAIL_HEIGHT_B = 0.85f;
 constexpr float RAIL_THICK = 0.05f;
 }
 
-void Fence::Load(Shader shader)
+bool Fence::InGap(float fraction) const
 {
+    for (const Vector2 &g : gaps_) {
+        if (fraction >= g.x && fraction < g.y) return true;
+    }
+    return false;
+}
+
+void Fence::Load(Shader shader, const std::vector<Vector2> &gaps)
+{
+    gaps_ = gaps;
+
     const auto &samples = road::Centreline();
     const int count = (int)samples.size();
     if (count < 2) return;
@@ -31,6 +41,8 @@ void Fence::Load(Shader shader)
 
     for (int side = -1; side <= 1; side += 2) {
         for (int i = 0; i < count; i += POST_SPACING) {
+            if (InGap((float)i / (float)count)) continue; // deliberate opening -- no post/rail here
+
             const road::Sample &s = samples[i];
             Vector3 post = Vector3Add(s.position, Vector3Scale(s.right, (float)side * OFFSET));
             post.y = terrain::HeightAt(post.x, post.z);
@@ -101,6 +113,10 @@ void Fence::Draw() const
 bool Fence::ResolveCollisions(Vector3 &position, float radius) const
 {
     if (!loaded_) return false;
+
+    int idx = road::NearestSampleIndex(position.x, position.z);
+    int count = (int)road::Centreline().size();
+    if (idx >= 0 && count > 0 && InGap((float)idx / (float)count)) return false; // open exit, not a wall
 
     const road::Sample &s = road::NearestSample(position.x, position.z);
 

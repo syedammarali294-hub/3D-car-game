@@ -21,7 +21,8 @@ const TrackDef SMALL = {
         { -325.000f,   20.096f },
         { -227.421f,   21.981f },
         { -142.733f,   59.979f },
-    }
+    },
+    { { 0.45f, 0.52f } }, // one gap, roughly opposite the start/finish line
 };
 
 // Long: the original circuit, unchanged -- same control points Road.cpp
@@ -38,7 +39,8 @@ const TrackDef LONG = {
         { -108.0f,  360.0f },
         { -342.0f,  228.0f },
         { -414.0f,  -36.0f },
-    }
+    },
+    { { 0.45f, 0.52f } },
 };
 
 // Longest: a big sweeping loop using the open-world expansion (WORLD_SIZE
@@ -56,7 +58,8 @@ const TrackDef LONGEST = {
         { -475.000f, -822.724f },
         {  147.620f, -837.003f },
         {  804.503f, -675.070f },
-    }
+    },
+    { { 0.20f, 0.25f }, { 0.60f, 0.65f } }, // bigger track, more chances to leave the road
 };
 
 } // namespace

@@ -372,7 +372,7 @@ int main(void)
     roadMesh.Load(sceneShader.Get());
 
     fence::Fence fences;
-    fences.Load(sceneShader.Get());
+    fences.Load(sceneShader.Get(), track::Get(track::TRACK_LONG).fenceGaps);
 
     water::Water lake;
     lake.Load();
@@ -520,7 +520,7 @@ int main(void)
                 roadMesh.Load(sceneShader.Get());
 
                 fences.Unload();
-                fences.Load(sceneShader.Get());
+                fences.Load(sceneShader.Get(), track::Get(ui.SelectedTrack()).fenceGaps);
 
                 scenery.Unload();
                 scenery.Load(sceneShader.Get());

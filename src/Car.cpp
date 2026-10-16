@@ -344,13 +344,13 @@ void Car::Update(float dt, const input::Input &input, const world::World &world,
 
     position_ = nextPos;
 
-    // Trees still stop the car; the fence no longer does -- open world,
-    // drive anywhere, the fence is a purely visual track-edge marker now
-    // (fences.Draw() is untouched, still rendered). (void)fences keeps the
-    // parameter from going unused now that only its Draw() is called.
-    (void)fences;
+    // Fence collision is back (Phase 3) -- but each track now defines
+    // deliberate gaps (Track.hpp) where Fence::ResolveCollisions no-ops,
+    // so "open world" survives as "open through the gaps" instead of
+    // "the fence never did anything."
     const float carRadius = spec.design.width * 0.55f;
     bool blocked = world.ResolveCollisions(position_, carRadius);
+    blocked = fences.ResolveCollisions(position_, carRadius) || blocked;
     blocked = tooSteep || blocked;
     if (aiTraffic) blocked = aiTraffic->ResolveCollisions(position_, carRadius) || blocked;
 
