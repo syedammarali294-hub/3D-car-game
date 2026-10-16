@@ -2,6 +2,7 @@
 
 #include "Config.hpp"
 #include "raylib.h"
+#include <vector>
 
 namespace terrain {
 
@@ -33,7 +34,15 @@ public:
     void Draw() const;
 
 private:
-    Model model_ = { 0 };
+    // raylib's Mesh::indices is a hardcoded unsigned short* (not something
+    // this project's own MeshBuilder controls) -- a hard 65535-vertex cap
+    // per mesh. A single (RES+1)^2 grid can't go much past RES=250 without
+    // hitting it, so the terrain is tiled into a grid of smaller meshes
+    // instead: each tile stays comfortably under the cap, and since every
+    // tile computes its vertices from the same world-space HeightAt/
+    // NormalAt functions, shared edges land on identical positions with no
+    // extra seam-matching logic needed.
+    std::vector<Model> tiles_;
     bool loaded_ = false;
 };
 

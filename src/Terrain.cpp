@@ -8,7 +8,8 @@ namespace terrain {
 
 namespace {
 
-constexpr int RES = 200; // grid quads per side; (RES+1)^2 must stay under 65535
+constexpr int RES = 400;       // grid quads per side, across the whole terrain (was 200)
+constexpr int TILE_COUNT = 4;  // per axis -- 16 tiles total, each (RES/TILE_COUNT+1)^2 = 10201 verts
 
 float SmoothStep01(float t)
 {
@@ -107,76 +108,97 @@ Vector3 NormalAt(float x, float z)
 
 void Terrain::Load(Shader shader)
 {
-    const int vertsPerSide = RES + 1;
-    const int vertexCount = vertsPerSide * vertsPerSide;
-    const int triangleCount = RES * RES * 2;
+    static_assert(RES % TILE_COUNT == 0, "RES must divide evenly into TILE_COUNT tiles");
 
-    Mesh mesh = { 0 };
-    mesh.vertexCount = vertexCount;
-    mesh.triangleCount = triangleCount;
-    mesh.vertices = (float *)MemAlloc(vertexCount * 3 * sizeof(float));
-    mesh.normals = (float *)MemAlloc(vertexCount * 3 * sizeof(float));
-    mesh.texcoords = (float *)MemAlloc(vertexCount * 2 * sizeof(float));
-    mesh.indices = (unsigned short *)MemAlloc(triangleCount * 3 * sizeof(unsigned short));
+    const int quadsPerTile = RES / TILE_COUNT;
+    const int vertsPerSide = quadsPerTile + 1;        // per tile
+    const int vertexCount = vertsPerSide * vertsPerSide; // per tile -- stays well under 65535
+    const int triangleCount = quadsPerTile * quadsPerTile * 2;
 
     const float step = WORLD_SIZE / (float)RES;
     const float origin = -WORLD_SIZE * 0.5f;
 
-    for (int zi = 0; zi < vertsPerSide; zi++) {
-        for (int xi = 0; xi < vertsPerSide; xi++) {
-            int i = zi * vertsPerSide + xi;
-            float x = origin + xi * step;
-            float z = origin + zi * step;
+    tiles_.clear();
+    tiles_.reserve(TILE_COUNT * TILE_COUNT);
 
-            mesh.vertices[i * 3 + 0] = x;
-            mesh.vertices[i * 3 + 1] = HeightAt(x, z);
-            mesh.vertices[i * 3 + 2] = z;
+    for (int tz = 0; tz < TILE_COUNT; tz++) {
+        for (int tx = 0; tx < TILE_COUNT; tx++) {
+            Mesh mesh = { 0 };
+            mesh.vertexCount = vertexCount;
+            mesh.triangleCount = triangleCount;
+            mesh.vertices = (float *)MemAlloc(vertexCount * 3 * sizeof(float));
+            mesh.normals = (float *)MemAlloc(vertexCount * 3 * sizeof(float));
+            mesh.texcoords = (float *)MemAlloc(vertexCount * 2 * sizeof(float));
+            mesh.indices = (unsigned short *)MemAlloc(triangleCount * 3 * sizeof(unsigned short));
 
-            Vector3 n = NormalAt(x, z);
-            mesh.normals[i * 3 + 0] = n.x;
-            mesh.normals[i * 3 + 1] = n.y;
-            mesh.normals[i * 3 + 2] = n.z;
+            // Global grid index this tile starts at -- the +1 overlap with
+            // the next tile is what makes adjacent tiles share an edge
+            // (computed independently from the same world x/z, so the
+            // positions land exactly on top of each other with no crack).
+            int gx0 = tx * quadsPerTile;
+            int gz0 = tz * quadsPerTile;
 
-            mesh.texcoords[i * 2 + 0] = (float)xi / (float)RES;
-            mesh.texcoords[i * 2 + 1] = (float)zi / (float)RES;
+            for (int zi = 0; zi < vertsPerSide; zi++) {
+                for (int xi = 0; xi < vertsPerSide; xi++) {
+                    int i = zi * vertsPerSide + xi;
+                    float x = origin + (gx0 + xi) * step;
+                    float z = origin + (gz0 + zi) * step;
+
+                    mesh.vertices[i * 3 + 0] = x;
+                    mesh.vertices[i * 3 + 1] = HeightAt(x, z);
+                    mesh.vertices[i * 3 + 2] = z;
+
+                    Vector3 n = NormalAt(x, z);
+                    mesh.normals[i * 3 + 0] = n.x;
+                    mesh.normals[i * 3 + 1] = n.y;
+                    mesh.normals[i * 3 + 2] = n.z;
+
+                    mesh.texcoords[i * 2 + 0] = (float)(gx0 + xi) / (float)RES;
+                    mesh.texcoords[i * 2 + 1] = (float)(gz0 + zi) / (float)RES;
+                }
+            }
+
+            int t = 0;
+            for (int zi = 0; zi < quadsPerTile; zi++) {
+                for (int xi = 0; xi < quadsPerTile; xi++) {
+                    unsigned short a = (unsigned short)(zi * vertsPerSide + xi);
+                    unsigned short b = (unsigned short)(a + 1);
+                    unsigned short c = (unsigned short)(a + vertsPerSide);
+                    unsigned short d = (unsigned short)(c + 1);
+
+                    mesh.indices[t++] = a;
+                    mesh.indices[t++] = c;
+                    mesh.indices[t++] = b;
+
+                    mesh.indices[t++] = b;
+                    mesh.indices[t++] = c;
+                    mesh.indices[t++] = d;
+                }
+            }
+
+            UploadMesh(&mesh, false);
+            Model m = LoadModelFromMesh(mesh);
+            m.materials[0].shader = shader;
+            tiles_.push_back(m);
         }
     }
 
-    int t = 0;
-    for (int zi = 0; zi < RES; zi++) {
-        for (int xi = 0; xi < RES; xi++) {
-            unsigned short a = (unsigned short)(zi * vertsPerSide + xi);
-            unsigned short b = (unsigned short)(a + 1);
-            unsigned short c = (unsigned short)(a + vertsPerSide);
-            unsigned short d = (unsigned short)(c + 1);
-
-            mesh.indices[t++] = a;
-            mesh.indices[t++] = c;
-            mesh.indices[t++] = b;
-
-            mesh.indices[t++] = b;
-            mesh.indices[t++] = c;
-            mesh.indices[t++] = d;
-        }
-    }
-
-    UploadMesh(&mesh, false);
-    model_ = LoadModelFromMesh(mesh);
-    model_.materials[0].shader = shader;
     loaded_ = true;
 }
 
 void Terrain::Unload()
 {
     if (loaded_) {
-        UnloadModel(model_);
+        for (Model &m : tiles_) UnloadModel(m);
+        tiles_.clear();
         loaded_ = false;
     }
 }
 
 void Terrain::Draw() const
 {
-    if (loaded_) DrawModel(model_, Vector3Zero(), 1.0f, WHITE);
+    if (!loaded_) return;
+    for (const Model &m : tiles_) DrawModel(m, Vector3Zero(), 1.0f, WHITE);
 }
 
 } // namespace terrain
