@@ -92,7 +92,10 @@ frame. Not started yet:
       owned Kenney Nature Kit only has temperate trees.
 - [ ] **LOD chains on props** (2 levels + a billboard) — ~270 props are
       drawn at full detail with only hard distance culling right now.
-- [ ] **Frustum culling for props**, on top of (or instead of) LOD.
+- [x] **Frustum (cone) culling for props**, on top of the existing distance
+      cull. `World::Draw` now skips anything outside a cone derived from
+      the camera's fovy/aspect (+18deg margin), unless it's within 18
+      units regardless of angle.
 
 ## Open — car visuals (procedural path only — not relevant while every car
 ## uses a real kit/licensed mesh, kept in case the procedural loft is ever
