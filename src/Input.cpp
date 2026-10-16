@@ -18,6 +18,7 @@ void Input::ResetToDefaults()
     keys_[ACTION_CAMERA] = KEY_C;
     keys_[ACTION_GEAR_UP] = KEY_LEFT_SHIFT;
     keys_[ACTION_GEAR_DOWN] = KEY_LEFT_CONTROL;
+    keys_[ACTION_REVERSE] = KEY_T;
     keys_[ACTION_BOOST] = KEY_N;
     keys_[ACTION_HORN] = KEY_H;
     keys_[ACTION_AUTODRIVE] = KEY_F;
@@ -95,6 +96,7 @@ const char *Input::ActionLabel(Action action)
         case ACTION_CAMERA:      return "Change Camera";
         case ACTION_GEAR_UP:     return "Gear Up (manual)";
         case ACTION_GEAR_DOWN:   return "Gear Down (manual)";
+        case ACTION_REVERSE:     return "Reverse (manual)";
         case ACTION_BOOST:       return "Boost (NOS)";
         case ACTION_HORN:        return "Horn";
         case ACTION_AUTODRIVE:   return "Auto-Drive Toggle";

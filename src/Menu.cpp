@@ -650,16 +650,19 @@ void Menu::TickCredits(int w, int h)
     y += 6;
     const char *licensed[] = {
         "Downloaded models (Ultra Graphics only):",
-        "\"BMW Modified Racing Car | BMW M3 E30\" by DevPoly3D",
-        "skfb.ly/pFIqo - CC BY 4.0",
-        "\"BMW M3 Competition\" by VTX - skfb.ly/pMrWu",
-        "\"BMW S1000 RR\" by VTX - skfb.ly/pMyBS",
-        "Both VTX models: CC BY-NC-SA 4.0 (NonCommercial -- this project",
-        "must stay free/non-commercial for as long as they're included)",
+        "\"BMW Modified Racing Car | BMW M3 E30\" by DevPoly3D - skfb.ly/pFIqo - CC BY 4.0",
+        "\"BMW M3 Competition\" by VTX - skfb.ly/pMrWu - CC BY-NC-SA 4.0 (NonCommercial)",
+        "\"BMW S1000 RR\" by VTX - skfb.ly/pMyBS - CC BY-NC-SA 4.0 (NonCommercial)",
+        "",
+        "Downloaded nature/water (always on):",
+        "\"Oak trees pack\" by LOLIPOP - skfb.ly/pNwKz - CC BY 4.0",
+        "\"Water Animation\" by Artise1 - skfb.ly/6WSTs - CC BY 4.0",
     };
     for (const char *line : licensed) {
-        DrawText(line, w / 2 - MeasureText(line, 14) / 2, y, 14, Fade(RAYWHITE, 0.7f));
-        y += 20;
+        if (line[0] != '\0') {
+            DrawText(line, w / 2 - MeasureText(line, 13) / 2, y, 13, Fade(RAYWHITE, 0.7f));
+        }
+        y += 17;
     }
 
     if (ButtonAt(Rectangle{ w * 0.5f - 90.0f, h - 110.0f, 180.0f, 48.0f }, "BACK", 22)) {
@@ -689,8 +692,8 @@ void Menu::SettingsHowTo(float top, int w)
             "F toggles auto-drive -- touching the wheel hands it back." }, 4 },
         { "GEARS", {
             "Automatic by default. Manual below switches gear keys on.",
-            "Manual: Left Shift shifts up, Left Ctrl shifts down.",
-            "Everyday cars run 5 gears, sports/hyper cars run 7-8." }, 3 },
+            "Manual: Left Shift up, Left Ctrl down, 1-9 selects a gear",
+            "directly, T is a dedicated reverse. 5-8 gears by car." }, 3 },
         { "BOOST & EXTRAS", {
             "N fires NOS boost -- a limited meter, refills when not used.",
             "H sounds the horn. C cycles camera. P or ESC pauses.",

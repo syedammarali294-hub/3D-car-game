@@ -170,6 +170,21 @@ void Car::Update(float dt, const input::Input &input, const world::World &world,
     const float fwd = speed_ > 0.0f ? speed_ : 0.0f;
 
     if (manual) {
+        // Direct gear select -- fixed number-key bindings (not routed
+        // through the rebindable Input system; rebinding nine separate
+        // per-gear keys isn't worth the Settings UI it would need). 1-9
+        // covers every gear count this project uses (max 8, see
+        // Gearbox.hpp). Existing over-rev protection elsewhere in Update()
+        // already penalises selecting too low a gear at speed, so this
+        // doesn't need its own safety check.
+        for (int g = 1; g <= gearCount && g <= 9; g++) {
+            if (IsKeyPressed(KEY_ONE + (g - 1)) && gear_ != g) {
+                gear_ = g;
+                shiftTimer_ = 0.15f;
+                justShifted_ = true;
+            }
+        }
+
         if (input.Pressed(input::ACTION_GEAR_UP) && gear_ < gearCount) {
             gear_++;
             shiftTimer_ = 0.20f;
@@ -210,9 +225,14 @@ void Car::Update(float dt, const input::Input &input, const world::World &world,
     // a stop (or holding brake already at rest) eases into reverse instead,
     // at a fraction of forward accel -- otherwise reverse launched as fast
     // as forward drive, which read as broken.
+    // Manual mode gets a dedicated reverse key (brakes down from forward
+    // speed exactly like the brake pedal, then continues into reverse once
+    // stopped -- same safety behaviour as brake-to-reverse, just its own
+    // control instead of overloading the brake key).
+    bool reverseKey = manual && input.Down(input::ACTION_REVERSE);
     if (throttle) {
         speed_ += effAccel * gearAccel * powerScale * dt;
-    } else if (brake) {
+    } else if (brake || reverseKey) {
         if (speed_ > 0.05f) speed_ -= spec.brakePower * powerScale * dt;
         else                speed_ -= effAccel * 0.45f * powerScale * dt;
     } else {

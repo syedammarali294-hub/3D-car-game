@@ -15,10 +15,24 @@ const char *MODEL_FILES[] = {
     "assets/models/nature/tree_pineDefaultA.obj",
     "assets/models/nature/tree_detailed.obj",
     "assets/models/nature/rock_largeA.obj",
-    "assets/models/nature/rock_smallA.obj"
+    "assets/models/nature/rock_smallA.obj",
+    // Downloaded, licensed (CC BY 4.0) real oak models -- much higher
+    // triangle cost (~6.2k faces each vs a few hundred for the Kenney
+    // kit trees above), so these only get picked for a small fraction of
+    // tree spawns rather than replacing the kit trees outright. With up
+    // to ~800 tree instances scattered across the map, giving all of
+    // them this model would multiply the scenery triangle budget by
+    // roughly 20x for comparatively little visible benefit at the
+    // draw distances most of them are seen from.
+    "assets/models/nature/oak_big.obj",
+    "assets/models/nature/oak_large.obj",
+    "assets/models/nature/oak_medium.obj",
+    "assets/models/nature/oak_sapling.obj",
 };
-constexpr int MODEL_COUNT = 6;
+constexpr int MODEL_COUNT = 10;
 constexpr int ROCK_FIRST_INDEX = 4;
+constexpr int REALISTIC_OAK_FIRST_INDEX = 6;
+constexpr int REALISTIC_OAK_COUNT = 4;
 constexpr int PROP_TARGET = 1100;
 
 // Deterministic generator so the world is identical every run.
@@ -66,9 +80,16 @@ void World::Load(Shader shader)
         if (n.y < 0.80f) continue;                        // nothing clings to steep mountainside
 
         bool rock = (rng.Next() < (desert ? 0.9f : 0.22f));
+        // A small fraction of tree spawns use one of the realistic,
+        // downloaded oak models instead of a kit tree -- see the comment
+        // by REALISTIC_OAK_FIRST_INDEX for why this stays a minority
+        // rather than replacing the kit trees outright.
+        bool realisticOak = (!rock && !desert && rng.Next() < 0.12f);
         int modelIndex = rock
             ? ROCK_FIRST_INDEX + (int)(rng.Next() * 2.0f) % 2
-            : (int)(rng.Next() * 4.0f) % 4;
+            : realisticOak
+                ? REALISTIC_OAK_FIRST_INDEX + (int)(rng.Next() * REALISTIC_OAK_COUNT) % REALISTIC_OAK_COUNT
+                : (int)(rng.Next() * 4.0f) % 4;
 
         Prop p;
         p.position = Vector3{ x, h - 0.1f, z };

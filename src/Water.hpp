@@ -16,8 +16,12 @@ public:
 private:
     Model model_ = { 0 };
     Shader shader_ = { 0 };
+    Texture2D rippleTex_ = { 0 };
+    Texture2D rippleAlpha_ = { 0 };
     int locTime_ = 0;
     int locViewPos_ = 0;
+    int locRippleTex_ = 0;
+    int locRippleAlpha_ = 0;
     bool loaded_ = false;
 };
 
