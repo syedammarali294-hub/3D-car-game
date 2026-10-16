@@ -17,6 +17,7 @@
 #include "Road.hpp"
 #include "Settings.hpp"
 #include "Terrain.hpp"
+#include "Track.hpp"
 #include "Upgrades.hpp"
 #include "Water.hpp"
 #include "World.hpp"
@@ -356,7 +357,7 @@ int main(void)
     upgrades::Load();
     audio::ApplySettings();
 
-    road::BuildCentreline();
+    road::BuildCentreline(track::Get(track::TRACK_LONG).control);
 
     lighting::SceneShader sceneShader;
     sceneShader.Load("shaders/scene.vs", "shaders/scene.fs");
@@ -386,6 +387,7 @@ int main(void)
     int loadedCarIndex = -1;
     int loadedColorIndex = -1;
     terrain::Style loadedWorldStyle = terrain::STYLE_HILLS;
+    track::TrackId loadedTrack = track::TRACK_LONG;
 
     // Traffic mode: a handful of AI cars looping the same circuit. Only
     // loaded (and only costs anything) while actually in that mode.
@@ -500,18 +502,20 @@ int main(void)
         };
 
         if (playing) {
-            // A changed World style also forces a car reload below (its
-            // start position/respawn depend on the new road), same as
+            // A changed World style OR track also forces a car reload below
+            // (its start position/respawn depend on the new road), same as
             // switching cars already does.
             bool worldChanged = (loadedWorldStyle != ui.SelectedWorldStyle());
+            bool trackChanged = (loadedTrack != ui.SelectedTrack());
             if (worldChanged) {
                 terrain::SetStyle(ui.SelectedWorldStyle());
                 terrainShader.SetDesertMode(terrain::IsDesert());
 
                 ground.Unload();
                 ground.Load(terrainShader.Get());
-
-                road::BuildCentreline();
+            }
+            if (worldChanged || trackChanged) {
+                road::BuildCentreline(track::Get(ui.SelectedTrack()).control);
                 roadMesh.Unload();
                 roadMesh.Load(sceneShader.Get());
 
@@ -522,9 +526,11 @@ int main(void)
                 scenery.Load(sceneShader.Get());
 
                 loadedWorldStyle = ui.SelectedWorldStyle();
+                loadedTrack = ui.SelectedTrack();
             }
+            bool trackOrWorldChanged = worldChanged || trackChanged;
 
-            if (!carLoaded || worldChanged || loadedCarIndex != ui.SelectedCar() ||
+            if (!carLoaded || trackOrWorldChanged || loadedCarIndex != ui.SelectedCar() ||
                 loadedColorIndex != ui.SelectedColorIndex()) {
                 if (carLoaded) player.Unload();
                 player.Load(sceneShader.Get(), ui.SelectedCar(), ResolveColor(ui.SelectedCar(), ui.SelectedColorIndex()));
@@ -552,10 +558,11 @@ int main(void)
             }
 
             // Traffic mode loads/unloads alongside the car above -- a world
-            // change already forces everything else to reload here too, so
-            // traffic rebuilds on the new circuit at the same time.
+            // or track change already forces everything else to reload
+            // here too, so traffic rebuilds on the new circuit at the same
+            // time.
             bool wantTraffic = ui.IsTrafficMode();
-            if (wantTraffic && (!trafficLoaded || worldChanged)) {
+            if (wantTraffic && (!trafficLoaded || trackOrWorldChanged)) {
                 if (trafficLoaded) aiTraffic.Unload();
                 aiTraffic.Load(sceneShader.Get(), TRAFFIC_CAR_COUNT);
                 trafficLoaded = true;

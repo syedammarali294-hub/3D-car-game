@@ -17,8 +17,10 @@ struct Sample {
     Vector3 right;     // unit direction across the road
 };
 
-// Builds the circuit centreline. Must run before anything queries the road.
-void BuildCentreline();
+// Builds the circuit centreline from a track's control points (see
+// Track.hpp -- a closed Catmull-Rom loop, same as always, just no longer
+// hardcoded to one fixed shape). Must run before anything queries the road.
+void BuildCentreline(const std::vector<Vector2> &control);
 
 const std::vector<Sample> &Centreline();
 

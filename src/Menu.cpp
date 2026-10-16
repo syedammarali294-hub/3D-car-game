@@ -196,23 +196,33 @@ void Menu::TickMain(int w, int h)
 
 void Menu::TickModeSelect(int w, int h)
 {
-    DrawText("SELECT MODE", w / 2 - MeasureText("SELECT MODE", 36) / 2, (int)(h * 0.22f), 36, RAYWHITE);
+    // Fixed pixel budget against the 720px canvas rather than fractions of
+    // h -- TickGarage learned this the hard way (see its own comment):
+    // fractional offsets quietly overlap once another row gets added later.
+    DrawText("SELECT MODE", w / 2 - MeasureText("SELECT MODE", 34) / 2, 30, 34, RAYWHITE);
 
     float cx = w * 0.5f - 170.0f;
-    float startY = h * 0.40f;
 
-    Rectangle freeDriveBtn = Rectangle{ cx, startY, 340.0f, 70.0f };
-    if (ButtonAt(freeDriveBtn, "FREE DRIVE", 26)) {
+    // Track picker: cycles through track::TrackId, same single-button-
+    // cycle pattern Settings > Car already uses for World style.
+    DrawText("TRACK", (int)cx, 96, 16, Fade(RAYWHITE, 0.6f));
+    const track::TrackDef &td = track::Get(selectedTrack_);
+    if (ButtonAt(Rectangle{ cx, 118.0f, 340.0f, 44.0f }, td.name, 22)) {
+        selectedTrack_ = (track::TrackId)((selectedTrack_ + 1) % track::TRACK_COUNT);
+    }
+    DrawText(td.description, w / 2 - MeasureText(td.description, 14) / 2, 168, 14, Fade(RAYWHITE, 0.6f));
+
+    float y1 = 220.0f;
+    if (ButtonAt(Rectangle{ cx, y1, 340.0f, 70.0f }, "FREE DRIVE", 26)) {
         trafficMode_ = false;
         screen_ = SCREEN_PLAYING;
     }
     DrawText("The circuit to yourself -- explore and lap freely.",
              w / 2 - MeasureText("The circuit to yourself -- explore and lap freely.", 14) / 2,
-             (int)(startY + 78.0f), 14, Fade(RAYWHITE, 0.6f));
+             (int)(y1 + 78.0f), 14, Fade(RAYWHITE, 0.6f));
 
-    float y2 = startY + 120.0f;
-    Rectangle trafficBtn = Rectangle{ cx, y2, 340.0f, 70.0f };
-    if (ButtonAt(trafficBtn, "TRAFFIC MODE", 26)) {
+    float y2 = y1 + 120.0f;
+    if (ButtonAt(Rectangle{ cx, y2, 340.0f, 70.0f }, "TRAFFIC MODE", 26)) {
         trafficMode_ = true;
         screen_ = SCREEN_PLAYING;
     }

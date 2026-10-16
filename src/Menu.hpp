@@ -3,6 +3,7 @@
 #include "CarDatabase.hpp"
 #include "Input.hpp"
 #include "Terrain.hpp"
+#include "Track.hpp"
 #include "raylib.h"
 
 namespace menu {
@@ -31,6 +32,7 @@ public:
     int SelectedCar() const { return selectedCar_; }
     int SelectedColorIndex() const { return selectedColorIndex_; }
     terrain::Style SelectedWorldStyle() const { return worldStyle_; }
+    track::TrackId SelectedTrack() const { return selectedTrack_; }
     bool IsLive() const { return screen_ == SCREEN_PLAYING; }
     bool IsTrafficMode() const { return trafficMode_; }
     Screen CurrentScreen() const { return screen_; }
@@ -56,6 +58,7 @@ private:
     int selectedCar_ = 0;
     int selectedColorIndex_ = 0; // 0 = that car's factory paint
     terrain::Style worldStyle_ = terrain::STYLE_HILLS;
+    track::TrackId selectedTrack_ = track::TRACK_LONG; // defaults to the original circuit
     bool trafficMode_ = false;
 
     float previewAngle_ = 0.4f;

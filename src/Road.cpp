@@ -12,20 +12,6 @@ namespace {
 
 std::vector<Sample> g_samples;
 
-// Control points for the circuit, laid out to keep clear of the lake and
-// well inside the mountain ring (see config::MOUNTAIN_START).
-const Vector2 CONTROL[] = {
-    { -336.0f, -282.0f },
-    {  -48.0f, -360.0f },
-    {  258.0f, -366.0f },
-    {  402.0f, -180.0f },
-    {  366.0f,  102.0f },
-    {  180.0f,  312.0f },
-    { -108.0f,  360.0f },
-    { -342.0f,  228.0f },
-    { -414.0f,  -36.0f }
-};
-constexpr int CONTROL_COUNT = 9;
 constexpr int STEPS_PER_SEGMENT = 24;
 
 Vector2 CatmullRom(Vector2 p0, Vector2 p1, Vector2 p2, Vector2 p3, float t)
@@ -45,16 +31,19 @@ Vector2 CatmullRom(Vector2 p0, Vector2 p1, Vector2 p2, Vector2 p3, float t)
 
 } // namespace
 
-void BuildCentreline()
+void BuildCentreline(const std::vector<Vector2> &control)
 {
     g_samples.clear();
 
+    const int controlCount = (int)control.size();
+    if (controlCount < 4) return; // Catmull-Rom needs 4 points per segment to evaluate
+
     std::vector<Vector2> flat;
-    for (int i = 0; i < CONTROL_COUNT; i++) {
-        Vector2 p0 = CONTROL[(i - 1 + CONTROL_COUNT) % CONTROL_COUNT];
-        Vector2 p1 = CONTROL[i];
-        Vector2 p2 = CONTROL[(i + 1) % CONTROL_COUNT];
-        Vector2 p3 = CONTROL[(i + 2) % CONTROL_COUNT];
+    for (int i = 0; i < controlCount; i++) {
+        Vector2 p0 = control[(i - 1 + controlCount) % controlCount];
+        Vector2 p1 = control[i];
+        Vector2 p2 = control[(i + 1) % controlCount];
+        Vector2 p3 = control[(i + 2) % controlCount];
 
         for (int s = 0; s < STEPS_PER_SEGMENT; s++) {
             flat.push_back(CatmullRom(p0, p1, p2, p3, (float)s / (float)STEPS_PER_SEGMENT));
