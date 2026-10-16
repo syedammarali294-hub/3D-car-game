@@ -33,7 +33,12 @@ constexpr int MODEL_COUNT = 10;
 constexpr int ROCK_FIRST_INDEX = 4;
 constexpr int REALISTIC_OAK_FIRST_INDEX = 6;
 constexpr int REALISTIC_OAK_COUNT = 4;
-constexpr int PROP_TARGET = 1100;
+// WORLD_SIZE's area grew ~6.25x for the open-world expansion; scaled to
+// ~4x rather than matching that fully -- the realistic oak trees added
+// this session are already ~6.2k faces vs a few hundred for the kit
+// trees, so matching prop *count* density 1:1 with the old map would
+// compound both increases at once.
+constexpr int PROP_TARGET = 4400;
 
 // Deterministic generator so the world is identical every run.
 struct Rng {

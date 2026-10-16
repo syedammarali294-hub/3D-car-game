@@ -344,10 +344,13 @@ void Car::Update(float dt, const input::Input &input, const world::World &world,
 
     position_ = nextPos;
 
-    // Trees and fence rails stop the car instead of letting it pass through.
+    // Trees still stop the car; the fence no longer does -- open world,
+    // drive anywhere, the fence is a purely visual track-edge marker now
+    // (fences.Draw() is untouched, still rendered). (void)fences keeps the
+    // parameter from going unused now that only its Draw() is called.
+    (void)fences;
     const float carRadius = spec.design.width * 0.55f;
     bool blocked = world.ResolveCollisions(position_, carRadius);
-    blocked = fences.ResolveCollisions(position_, carRadius) || blocked;
     blocked = tooSteep || blocked;
     if (aiTraffic) blocked = aiTraffic->ResolveCollisions(position_, carRadius) || blocked;
 

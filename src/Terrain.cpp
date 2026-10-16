@@ -8,8 +8,14 @@ namespace terrain {
 
 namespace {
 
-constexpr int RES = 400;       // grid quads per side, across the whole terrain (was 200)
-constexpr int TILE_COUNT = 4;  // per axis -- 16 tiles total, each (RES/TILE_COUNT+1)^2 = 10201 verts
+// WORLD_SIZE grew 1600 -> 4000 for the open-world expansion; RES and
+// TILE_COUNT scale with it to keep the same ~4 world-units-per-quad
+// density rather than the existing terrain just getting coarser over a
+// bigger area. TILE_COUNT=5 (not 4) because RES/4 would land each tile at
+// 63001 verts -- only ~4% under the 65535 cap, an uncomfortably thin
+// margin. /5 keeps the same ~62%-of-cap margin the previous 4x4 grid had.
+constexpr int RES = 1000;      // grid quads per side, across the whole terrain (was 400)
+constexpr int TILE_COUNT = 5;  // per axis -- 25 tiles total, each (RES/TILE_COUNT+1)^2 = 40401 verts
 
 float SmoothStep01(float t)
 {
