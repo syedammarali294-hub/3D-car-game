@@ -5,6 +5,8 @@
 #include "Lighting.hpp"
 #include "Engine.hpp"
 #include "Gearbox.hpp"
+#include "FileAssoc.hpp"
+#include "MapFile.hpp"
 #include "Settings.hpp"
 #include "Upgrades.hpp"
 #include <cstdio>
@@ -194,6 +196,23 @@ void Menu::TickMain(int w, int h)
     else if (IsKeyPressed(KEY_C)) screen_ = SCREEN_CREDITS;
 }
 
+bool Menu::StartWithCustomMap(const std::string &path)
+{
+    mapfile::LoadResult r = mapfile::Load(path);
+    if (!r.ok) return false;
+
+    track::SetCustom(r.trackDef);
+    if (r.worldStyle >= 0 && r.worldStyle < terrain::STYLE_COUNT) {
+        worldStyle_ = (terrain::Style)r.worldStyle;
+    }
+    customMapPaths_ = { path };
+    customMapIndex_ = 0;
+    customMapsScanned_ = false; // let the next mode-select visit discover any others alongside it
+
+    screen_ = SCREEN_MODESELECT; // skip the main menu -- straight to Free Drive / Traffic Mode on this map
+    return true;
+}
+
 void Menu::TickModeSelect(int w, int h)
 {
     // Fixed pixel budget against the 720px canvas rather than fractions of
@@ -203,14 +222,63 @@ void Menu::TickModeSelect(int w, int h)
 
     float cx = w * 0.5f - 170.0f;
 
-    // Track picker: cycles through track::TrackId, same single-button-
-    // cycle pattern Settings > Car already uses for World style.
-    DrawText("TRACK", (int)cx, 96, 16, Fade(RAYWHITE, 0.6f));
-    const track::TrackDef &td = track::Get(selectedTrack_);
-    if (ButtonAt(Rectangle{ cx, 118.0f, 340.0f, 44.0f }, td.name, 22)) {
-        selectedTrack_ = (track::TrackId)((selectedTrack_ + 1) % track::TRACK_COUNT);
+    // Scanned once (a directory read), not every frame.
+    if (!customMapsScanned_) {
+        customMapPaths_ = mapfile::ListMapFiles();
+        customMapsScanned_ = true;
     }
-    DrawText(td.description, w / 2 - MeasureText(td.description, 14) / 2, 168, 14, Fade(RAYWHITE, 0.6f));
+
+    // Track picker: cycles SMALL -> LONG -> LONGEST -> each custom .cgmap
+    // found in the Maps folder -> back to SMALL. Landing on a custom one
+    // loads it immediately (track::Get(TRACK_CUSTOM) has to already hold
+    // its data by the time SelectedTrack() is read elsewhere).
+    DrawText("TRACK", (int)cx, 96, 16, Fade(RAYWHITE, 0.6f));
+    const char *trackName = (customMapIndex_ >= 0) ? track::Get(track::TRACK_CUSTOM).name
+                                                    : track::Get(selectedTrack_).name;
+    const char *trackDesc = (customMapIndex_ >= 0) ? track::Get(track::TRACK_CUSTOM).description
+                                                    : track::Get(selectedTrack_).description;
+    if (ButtonAt(Rectangle{ cx, 118.0f, 340.0f, 44.0f }, trackName, 22)) {
+        int totalSlots = (int)track::TRACK_COUNT + (int)customMapPaths_.size();
+        int currentSlot = (customMapIndex_ >= 0) ? ((int)track::TRACK_COUNT + customMapIndex_) : (int)selectedTrack_;
+        int nextSlot = (currentSlot + 1) % totalSlots;
+        if (nextSlot < (int)track::TRACK_COUNT) {
+            selectedTrack_ = (track::TrackId)nextSlot;
+            customMapIndex_ = -1;
+        } else {
+            customMapIndex_ = nextSlot - (int)track::TRACK_COUNT;
+            mapfile::LoadResult r = mapfile::Load(customMapPaths_[customMapIndex_]);
+            if (r.ok) {
+                track::SetCustom(r.trackDef);
+                if (r.worldStyle >= 0 && r.worldStyle < terrain::STYLE_COUNT) {
+                    worldStyle_ = (terrain::Style)r.worldStyle;
+                }
+            } else {
+                // Bad/corrupt file -- don't silently pretend it loaded;
+                // fall back to Long rather than leave TRACK_CUSTOM holding
+                // stale data from whatever was loaded before.
+                selectedTrack_ = track::TRACK_LONG;
+                customMapIndex_ = -1;
+            }
+        }
+    }
+    DrawText(trackDesc, w / 2 - MeasureText(trackDesc, 14) / 2, 168, 14, Fade(RAYWHITE, 0.6f));
+
+    // Exports the currently-selected track (built-in or custom) as a real
+    // .cgmap file -- a hand-editable starting point for a custom track
+    // even before there's an in-game editor (Phase 5) to author one from
+    // scratch. Saved into the same Maps folder the picker above reads from.
+    const track::TrackDef &exportSrc = (customMapIndex_ >= 0) ? track::Get(track::TRACK_CUSTOM)
+                                                               : track::Get(selectedTrack_);
+    if (ButtonAt(Rectangle{ cx + 360.0f, 118.0f, 220.0f, 44.0f }, "EXPORT .cgmap", 16)) {
+        std::string exportName = std::string(exportSrc.name) + "_export";
+        exportMessage_ = mapfile::Save(exportName, exportSrc, (int)worldStyle_)
+                        ? ("Saved to " + mapfile::MapsDirectory() + "\\" + exportName + ".cgmap")
+                        : "Save failed.";
+        customMapsScanned_ = false; // the new file should show up in the picker's cycle
+    }
+    if (!exportMessage_.empty()) {
+        DrawText(exportMessage_.c_str(), (int)(cx + 360.0f), 166, 13, Fade(RAYWHITE, 0.6f));
+    }
 
     float y1 = 220.0f;
     if (ButtonAt(Rectangle{ cx, y1, 340.0f, 70.0f }, "FREE DRIVE", 26)) {
@@ -586,6 +654,25 @@ void Menu::SettingsCar(float top, int w)
              (int)x, (int)y + 44, 14, Fade(RAYWHITE, 0.55f));
     DrawText("Garage -- real meshes, 5-25x the triangle cost of the rest.",
              (int)x, (int)y + 62, 14, Fade(RAYWHITE, 0.55f));
+    y += 92.0f;
+
+    // Writes to HKEY_CURRENT_USER\Software\Classes (no admin rights
+    // needed) -- still a real system-settings change, so it only ever
+    // happens from this explicit button press, never automatically.
+    RowLabel(".cgmap files", x, y);
+    bool associated = fileassoc::IsAssociated();
+    if (ButtonAt(Rectangle{ x + 380.0f, y, 220.0f, 40.0f },
+                associated ? "ASSOCIATED" : "ASSOCIATE .cgmap", 16)) {
+        if (!associated) fileAssocMessage_ = fileassoc::AssociateCgmapFiles()
+                                            ? "Done -- double-click a .cgmap file to open it."
+                                            : "Failed to write the file association.";
+    }
+    if (!fileAssocMessage_.empty()) {
+        DrawText(fileAssocMessage_.c_str(), (int)x, (int)y + 44, 14, Fade(RAYWHITE, 0.6f));
+    } else {
+        DrawText("Double-click a .cgmap map file to open it straight into the game.",
+                 (int)x, (int)y + 44, 14, Fade(RAYWHITE, 0.55f));
+    }
 }
 
 void Menu::SettingsGear(const input::Input &input, float top, int w)

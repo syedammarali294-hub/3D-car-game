@@ -2,6 +2,7 @@
 #include "raymath.h"
 #include <algorithm>
 #include <memory>
+#include <string>
 #include <vector>
 
 #include "AiTraffic.hpp"
@@ -316,7 +317,7 @@ void DrawHud(car::Car &player, const cam::GameCamera &camera, int visibleProps,
 
 } // namespace
 
-int main(void)
+int main(int argc, char **argv)
 {
     // No MSAA by default -- 4x antialiasing is a real cost on the Intel HD
     // 4000-class hardware this project targets, and the low-poly flat-shaded
@@ -381,6 +382,18 @@ int main(void)
     scenery.Load(sceneShader.Get());
 
     menu::Menu ui;
+
+    // Double-click a .cgmap file (Windows passes its full path as argv[1]
+    // once file association is set up in Settings) -- load it straight in,
+    // skip the main menu. Silently falls through to the normal main menu
+    // if the path doesn't end in .cgmap or didn't load; this is a nice-to-
+    // have shortcut, not something that should block launching the game.
+    if (argc > 1) {
+        std::string argPath = argv[1];
+        if (argPath.size() > 6 && argPath.compare(argPath.size() - 6, 6, ".cgmap") == 0) {
+            ui.StartWithCustomMap(argPath);
+        }
+    }
 
     car::Car player;
     bool carLoaded = false;

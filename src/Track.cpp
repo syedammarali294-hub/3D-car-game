@@ -62,6 +62,8 @@ const TrackDef LONGEST = {
     { { 0.20f, 0.25f }, { 0.60f, 0.65f } }, // bigger track, more chances to leave the road
 };
 
+TrackDef g_custom = { "(no custom map loaded)", "", {}, {} };
+
 } // namespace
 
 const TrackDef &Get(TrackId id)
@@ -69,9 +71,15 @@ const TrackDef &Get(TrackId id)
     switch (id) {
         case TRACK_SMALL:   return SMALL;
         case TRACK_LONGEST: return LONGEST;
+        case TRACK_CUSTOM:  return g_custom;
         case TRACK_LONG:
         default:             return LONG;
     }
+}
+
+void SetCustom(const TrackDef &def)
+{
+    g_custom = def;
 }
 
 } // namespace track

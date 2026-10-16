@@ -5,6 +5,8 @@
 #include "Terrain.hpp"
 #include "Track.hpp"
 #include "raylib.h"
+#include <string>
+#include <vector>
 
 namespace menu {
 
@@ -32,7 +34,11 @@ public:
     int SelectedCar() const { return selectedCar_; }
     int SelectedColorIndex() const { return selectedColorIndex_; }
     terrain::Style SelectedWorldStyle() const { return worldStyle_; }
-    track::TrackId SelectedTrack() const { return selectedTrack_; }
+    // TRACK_CUSTOM whenever a .cgmap is the active selection (its data is
+    // already loaded into track::Get(TRACK_CUSTOM) by the time this is
+    // read -- see TickModeSelect's cycle logic), otherwise one of the 3
+    // built-in tracks.
+    track::TrackId SelectedTrack() const { return (customMapIndex_ >= 0) ? track::TRACK_CUSTOM : selectedTrack_; }
     bool IsLive() const { return screen_ == SCREEN_PLAYING; }
     bool IsTrafficMode() const { return trafficMode_; }
     Screen CurrentScreen() const { return screen_; }
@@ -40,6 +46,14 @@ public:
     // main.cpp renders the selected car into this each frame the garage is
     // open (it owns the GPU resources; Menu just draws the result).
     void SetGaragePreview(Texture2D tex) { garagePreviewTex_ = tex; garagePreviewReady_ = true; }
+
+    // Double-click-a-.cgmap-file entry point: called once from main() if a
+    // map path was passed on the command line. Loads it as the active
+    // custom track and jumps straight to the mode-select screen (skipping
+    // the main menu), same as the plan's "open a .map file -> straight to
+    // car select -> drive" asked for. Returns false if the file didn't
+    // load (main() still shows the normal main menu in that case).
+    bool StartWithCustomMap(const std::string &path);
 
     // Garage preview camera angle -- auto-orbits when idle, drag-rotated by
     // the player when the mouse is held down over the preview pane. Read by
@@ -59,6 +73,15 @@ private:
     int selectedColorIndex_ = 0; // 0 = that car's factory paint
     terrain::Style worldStyle_ = terrain::STYLE_HILLS;
     track::TrackId selectedTrack_ = track::TRACK_LONG; // defaults to the original circuit
+
+    // Custom .cgmap cycling: the picker in TickModeSelect walks
+    // SMALL -> LONG -> LONGEST -> each file in customMapPaths_ -> back to
+    // SMALL. -1 means "on one of the 3 built-in tracks, not a custom one".
+    std::string fileAssocMessage_; // feedback shown under the Settings > Car association button
+    std::string exportMessage_;    // feedback shown under the mode-select EXPORT button
+    std::vector<std::string> customMapPaths_;
+    bool customMapsScanned_ = false; // ListMapFiles() is a directory read -- do it once, not every frame
+    int customMapIndex_ = -1;
     bool trafficMode_ = false;
 
     float previewAngle_ = 0.4f;
