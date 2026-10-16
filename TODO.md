@@ -6,21 +6,21 @@ Asked for together; planned as phases so each one ships working before
 the next starts. Phase 1 fixes what's broken now; every later phase
 builds on the one before it.
 
-### Phase 1 — fix laps (bug fix, do first)
+### Phase 1 — fix laps (bug fix, do first) — DONE
 
-Current logic (`main.cpp`): a lap counts once you've passed the halfway
-sample and then cross from the last 10% of the track into the first 10%.
-Teleport and respawn never reset or invalidate that state, so a teleport
-can count a fake lap, skip a real one, or leave the timer confused.
-- [ ] Replace halfway-arming with **ordered checkpoints** (8 sectors along
-      the centreline). A lap only counts if every checkpoint was crossed in
-      order since the last finish.
-- [ ] Teleport / respawn / auto-drive **invalidate the current lap**
-      (timer shows "INVALID", no best-lap or ghost recorded for it) and
-      re-arm from wherever the car lands.
-- [ ] **Visible start/finish gate**: an arch + chequered line across the
-      road at `road::StartPoint()`, plus small checkpoint markers.
-- [ ] HUD: current sector / checkpoint count, so it's clear a lap is live.
+- [x] Replaced halfway-arming with **8 ordered checkpoints** along the
+      centreline (index 0 = finish). A lap only counts if all 7 others
+      were crossed in sequence since the last finish.
+- [x] Teleport / respawn **invalidate the current lap**. Detected
+      generically (a road-position jump bigger than one checkpoint's
+      spacing in a single frame, not a hook into every respawn call site)
+      so it catches minimap teleport, Backspace respawn, and the internal
+      auto-respawn-when-stuck alike. Shows "INVALID" in red on the HUD;
+      no time/best/ghost recorded for that lap.
+- [x] **Visible start/finish gate** (striped pillars + banner) and small
+      flag markers at each checkpoint, computed live from
+      `road::Centreline()`, no new assets.
+- [x] HUD: "Checkpoint N/7" readout while a lap is in progress.
 
 ### Phase 2 — multiple tracks
 
