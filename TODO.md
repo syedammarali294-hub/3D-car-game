@@ -1,5 +1,89 @@
 # TODO
 
+## PLAN — tracks, laps, fences, map editor, admin/creative mode (2026-10-16)
+
+Asked for together; planned as phases so each one ships working before
+the next starts. Phase 1 fixes what's broken now; every later phase
+builds on the one before it.
+
+### Phase 1 — fix laps (bug fix, do first)
+
+Current logic (`main.cpp`): a lap counts once you've passed the halfway
+sample and then cross from the last 10% of the track into the first 10%.
+Teleport and respawn never reset or invalidate that state, so a teleport
+can count a fake lap, skip a real one, or leave the timer confused.
+- [ ] Replace halfway-arming with **ordered checkpoints** (8 sectors along
+      the centreline). A lap only counts if every checkpoint was crossed in
+      order since the last finish.
+- [ ] Teleport / respawn / auto-drive **invalidate the current lap**
+      (timer shows "INVALID", no best-lap or ghost recorded for it) and
+      re-arm from wherever the car lands.
+- [ ] **Visible start/finish gate**: an arch + chequered line across the
+      road at `road::StartPoint()`, plus small checkpoint markers.
+- [ ] HUD: current sector / checkpoint count, so it's clear a lap is live.
+
+### Phase 2 — multiple tracks
+
+- [ ] A `Track` data type: name, control points, road width, fence
+      layout, start point. Replace the single hardcoded `CONTROL[]` in
+      `Road.cpp` with a list of tracks.
+- [ ] Built-in tracks: **Small** (short tight loop), **Long** (current
+      circuit), **Longest** (big sweeping loop using the open world).
+- [ ] Track picker in the PLAY / mode-select screen (same pattern as the
+      car picker). Best lap + ghost saved **per track per car**.
+- [ ] Everything that reads the circuit (road mesh, fences, minimap, AI
+      traffic, auto-drive, prop clearance) already goes through
+      `road::Centreline()` — it just needs to rebuild on track change.
+
+### Phase 3 — fences with gaps
+
+- [ ] Re-enable fence collision (undoing the "no fence" change), but
+      fences become **segments with gaps**: each track defines openings
+      (start/end along the centreline) where you can leave the road into
+      the open world.
+- [ ] Gaps drawn visibly (posts end, maybe a gate/sign) so they read as
+      intentional exits, not missing geometry.
+
+### Phase 4 — custom maps + `.map` files
+
+- [ ] A `.map` file format: plain text, name-keyed lines (same robust style
+      as the fixed `settings.cfg`, never positional), versioned header.
+      Holds: track control points, fence segments + gaps, placed props
+      (trees/rocks), placed cars (AI/parked), mountains/hills, map border
+      size, spawn point, world style.
+- [ ] Save/load: maps live in `Documents/3D Car Game/Maps/` by default;
+      **autosave** every N seconds while editing to `<name>.autosave.map`.
+- [ ] Main menu: **PLAY → Custom Map** lists `.map` files in that folder.
+- [ ] **Open a `.map` by double-clicking it**: the game accepts a file
+      path as a command-line argument (`CarGame3D.exe "path.map"`) and
+      jumps straight to car select → drive on that map. Windows file
+      association (registry entry for `.map` → the exe) set up by an
+      optional "Associate .map files" button in Settings, since it writes
+      to the user's registry and should be opt-in, not done silently.
+      (Note: `.map` is a generic extension other software also uses —
+      worth considering `.cgmap` to avoid hijacking it.)
+
+### Phase 5 — creative mode (map editor) + admin mode
+
+- [ ] **Creative mode**: free-fly editor camera, placement tools:
+      road control points (drag to reshape the track live), fence
+      segments + gaps, trees/rocks, parked/AI cars, raise/lower terrain
+      brush for hills/mountains, map border size. Undo, save, test-drive.
+- [ ] **Admin mode** (toggle in Settings, or launched with `--admin`):
+      enables the cheats that shouldn't be in normal play.
+- [ ] **Minimap teleport moves to admin/creative only** — in normal play
+      it's disabled (it's also what breaks laps today).
+- [ ] Terrain becomes data-driven (base noise + per-map edits) instead of
+      only the hardcoded `HeightAt()` styles — needed for the terrain brush.
+
+### Order and why
+
+1 → 2 → 3 → 4 → 5. Laps must be trustworthy before there are several
+tracks to set records on; tracks must be data (Phase 2) before a file
+format can save them (Phase 4); and the editor (Phase 5) is just a UI that
+writes that same data. Phase 5 is the biggest by far (an editor is its own
+application inside the game) and should be split further when we get there.
+
 Status as of 2026-10-15. Rewritten to reflect what's actually true of the
 code right now — the previous version had accumulated a lot of stale
 "open" items that were already fixed in later sessions.
