@@ -36,6 +36,12 @@ struct Options {
     // can't be casually cheated by someone who doesn't know what the
     // toggle does.
     bool adminMode = false;
+
+    // Quality preset: High is the default (the project's stated low-end
+    // target was explicitly dropped -- see TODO.md). Low scales back prop
+    // density and draw distance for anyone who still wants a lighter-
+    // weight option, without the codebase being all-or-nothing about it.
+    bool highQuality = true;
 };
 
 Options &Get();

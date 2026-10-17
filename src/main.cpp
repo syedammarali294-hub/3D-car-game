@@ -404,8 +404,15 @@ int main(int argc, char **argv)
     water::Water lake;
     lake.Load();
 
+    // Low cuts prop density and draw distance (settings::Options::highQuality,
+    // Settings > Car > Quality) -- the one real lever for anyone who wants
+    // a lighter-weight option now that the low-end-hardware target was
+    // explicitly dropped (see TODO.md).
+    auto PropDensityScale = []() { return settings::Get().highQuality ? 1.0f : 0.45f; };
+    auto EffectiveDrawDistance = []() { return settings::Get().highQuality ? config::DRAW_DISTANCE : config::DRAW_DISTANCE * 0.65f; };
+
     world::World scenery;
-    scenery.Load(sceneShader.Get());
+    scenery.Load(sceneShader.Get(), PropDensityScale());
 
     menu::Menu ui;
 
@@ -427,6 +434,7 @@ int main(int argc, char **argv)
     int loadedColorIndex = -1;
     terrain::Style loadedWorldStyle = terrain::STYLE_HILLS;
     track::TrackId loadedTrack = track::TRACK_LONG;
+    bool loadedHighQuality = settings::Get().highQuality;
 
     // Traffic mode: a handful of AI cars looping the same circuit. Only
     // loaded (and only costs anything) while actually in that mode.
@@ -555,6 +563,7 @@ int main(int argc, char **argv)
             // switching cars already does.
             bool worldChanged = (loadedWorldStyle != ui.SelectedWorldStyle());
             bool trackChanged = (loadedTrack != ui.SelectedTrack());
+            bool qualityChanged = (loadedHighQuality != settings::Get().highQuality);
             if (worldChanged) {
                 terrain::SetStyle(ui.SelectedWorldStyle());
                 terrainShader.SetDesertMode(terrain::IsDesert());
@@ -569,12 +578,17 @@ int main(int argc, char **argv)
 
                 fences.Unload();
                 fences.Load(sceneShader.Get(), track::Get(ui.SelectedTrack()).fenceGaps);
-
+            }
+            if (worldChanged || trackChanged || qualityChanged) {
+                // Quality alone doesn't touch terrain/road/fences -- only
+                // prop density, so it only needs scenery rebuilt, not the
+                // full reload above.
                 scenery.Unload();
-                scenery.Load(sceneShader.Get());
+                scenery.Load(sceneShader.Get(), PropDensityScale());
 
                 loadedWorldStyle = ui.SelectedWorldStyle();
                 loadedTrack = ui.SelectedTrack();
+                loadedHighQuality = settings::Get().highQuality;
             }
             bool trackOrWorldChanged = worldChanged || trackChanged;
 
@@ -970,7 +984,7 @@ int main(int argc, char **argv)
                     {
                         Vector3 viewFwd = Vector3Subtract(activeCam.target, activeCam.position);
                         float aspect = (float)config::SCREEN_WIDTH / (float)config::SCREEN_HEIGHT;
-                        scenery.Draw(viewPos, config::DRAW_DISTANCE, viewFwd, activeCam.fovy, aspect);
+                        scenery.Draw(viewPos, EffectiveDrawDistance(), viewFwd, activeCam.fovy, aspect);
                     }
                     if (trafficLoaded) aiTraffic.Draw();
                     player.Draw();

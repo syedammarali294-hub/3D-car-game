@@ -124,9 +124,15 @@ exactly what that does and doesn't cover. What's left under it (prop/AI
 placement, a terrain brush, undo) is real, scoped, separate future work,
 not something quietly skipped.
 
-Status as of 2026-10-16. Rewritten to reflect what's actually true of the
+Status as of 2026-10-17. Rewritten to reflect what's actually true of the
 code right now — the previous version had accumulated a lot of stale
 "open" items that were already fixed in later sessions.
+
+**Genuinely still open, not quietly skipped**: real shadows/SSAO/car
+reflections/bloom (each its own session, see below), true chunk streaming,
+traffic cones/slalom mode, desert flora, LOD chains on props, and the Map
+Editor's prop/terrain-brush extensions (Phase 5 above). Nothing in this
+list has been started.
 
 **Target hardware: raised.** The user explicitly approved dropping the
 Intel HD 4000 low-end constraint in favor of implementing the full
@@ -161,9 +167,14 @@ frame. Not started yet:
       these if they ever grow that large; tile or split the same way the
       terrain was if one does.
 - [ ] **Anisotropic/mipped road texture** instead of flat vertex colour.
-- [ ] **Quality preset (Low/High) in Settings** so a future low-end pass,
-      if ever wanted again, has a real toggle instead of this being an
-      all-or-nothing codebase decision.
+- [x] **Quality preset (Low/High) in Settings > Car — DONE (2026-10-17).**
+      `settings::Options::highQuality` (default High, matching the raised
+      target). Low scales prop density to 45% (`World::Load`'s new
+      `densityScale` param) and draw distance to 65%. Switching it while
+      playing reloads just the scenery (not terrain/road/fences -- those
+      don't depend on it), the same pattern a World-style change already
+      used. The Car settings tab needed its own scroll (see Keybinds tab)
+      to fit this and everything else on one screen.
 
 ## Done this session — rendering (the safe, bounded part)
 
@@ -207,6 +218,18 @@ frame. Not started yet:
 
 ## Open — world/gameplay, still owed
 
+- [x] **Drive-through-the-road bug, fixed properly (2026-10-17).** Reported
+      as "can drive through the road" on a custom 4-point map. Root cause:
+      `Road.cpp`'s curve used *uniform* Catmull-Rom parametrization, which
+      loops/self-intersects when control points are spaced unevenly --
+      which a freehand custom map almost always is (confirmed: the
+      reported map's curve self-intersected with the old formula, verified
+      zero self-intersections with the fix). Switched to **centripetal
+      Catmull-Rom** (Barry & Goldman, alpha=0.5, knots from real inter-
+      point distances), applied identically in `Road.cpp` (the real
+      centreline) and `MapEditorMain.cpp` (the editor's preview curve) so
+      they match exactly. This fixes it for every custom map, not just the
+      one reported -- it was never map-specific, it was the parametrization.
 - [x] **Water, nature, fence.** Water got a real scrolling ripple-texture
       layer (downloaded CC BY 4.0 textures) on top of the existing
       procedural wave shader -- also fixed this session: the water plane

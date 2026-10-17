@@ -1,8 +1,18 @@
-1.7.0
+1.8.0
 
-Build date: 2026-10-16
+Build date: 2026-10-17
 
 ## Changelog
+
+### 1.8.0 - 2026-10-17
+- Added: Quality preset (Settings > Car) -- Low cuts prop density to 45%
+  and draw distance to 65%, High is the default. Switching it mid-session
+  reloads just the scenery.
+- Added: `/tp`/`/pos` already shipped in 1.7.0; Car settings tab now
+  scrolls (same pattern as Keybinds) since it outgrew one screen.
+- Verified: the 1.7.0 centripetal-curve fence fix against the actual
+  reported map -- 0 self-intersections (was self-intersecting before),
+  closest non-adjacent road points 60 units apart (fence offset is ~7).
 
 ### 1.7.0 - 2026-10-16
 - Fixed: the road/fence curve used uniform Catmull-Rom parametrization,

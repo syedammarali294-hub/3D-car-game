@@ -94,9 +94,10 @@ private:
     int settingsTab_ = TAB_KEYS;
     bool optionsDirty_ = false; // saved once the mouse is released, not every drag frame
     float keysScroll_ = 0.0f; // pixels scrolled down the Keybinds list; clamped each frame to content height
+    float carScroll_ = 0.0f;  // same, for the Car tab -- it outgrew one screen's worth of rows this session
     void SettingsKeys(input::Input &input, float top, float bottom, int w);
     void SettingsSound(float top, int w);
-    void SettingsCar(float top, int w);
+    void SettingsCar(float top, float bottom, int w);
     void SettingsGear(const input::Input &input, float top, int w);
     void SettingsHowTo(float top, int w);
 

@@ -7,7 +7,7 @@ namespace config {
 // Mirrors the project root's VERSION file -- kept here too since that file
 // isn't bundled into the build, so the running game can still show its own
 // version without reading a file that won't exist next to the .exe.
-constexpr const char *GAME_VERSION = "1.7.0";
+constexpr const char *GAME_VERSION = "1.8.0";
 
 constexpr int SCREEN_WIDTH = 1280;
 constexpr int SCREEN_HEIGHT = 720;

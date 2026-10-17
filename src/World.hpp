@@ -15,7 +15,10 @@ struct Prop {
 
 class World {
 public:
-    void Load(Shader shader);
+    // densityScale multiplies PROP_TARGET -- the Quality setting's one
+    // real lever on this system (Settings > Car > QUALITY). 1.0 = the
+    // normal density; call sites pass a smaller value for Low.
+    void Load(Shader shader, float densityScale = 1.0f);
     void Unload();
     // viewForward/fovyDeg/aspect add a cheap cone-based frustum cull on top
     // of the existing distance cull -- props well outside the camera's view

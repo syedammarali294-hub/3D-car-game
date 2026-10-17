@@ -526,7 +526,7 @@ void Menu::TickSettings(input::Input &input, int w, int h)
     switch (settingsTab_) {
         case TAB_KEYS:  SettingsKeys(input, top, bottom, w); break;
         case TAB_SOUND: SettingsSound(top, w); break;
-        case TAB_CAR:   SettingsCar(top, w); break;
+        case TAB_CAR:   SettingsCar(top, bottom, w); break;
         case TAB_GEAR:  SettingsGear(input, top, w); break;
         case TAB_HOWTO: SettingsHowTo(top, w); break;
     }
@@ -646,11 +646,29 @@ void Menu::SettingsSound(float top, int w)
     DrawText("Engine sound is heard while driving.", (int)x, (int)y + 11, 16, Fade(RAYWHITE, 0.6f));
 }
 
-void Menu::SettingsCar(float top, int w)
+void Menu::SettingsCar(float top, float bottom, int w)
 {
     settings::Options &o = settings::Get();
     float x = w * 0.5f - 280.0f;
-    float y = top;
+
+    // This tab outgrew one screen's worth of rows (Quality joined World/
+    // Graphics/Admin/etc this session) -- same scissor+wheel scroll as the
+    // Keybinds tab, just with an unknown-until-drawn content height instead
+    // of a uniform row pitch: shiftedTop moves every row up by carScroll_
+    // in one place, and contentHeight falls out of wherever `y` ends up
+    // (translation-invariant, so it's correct regardless of scroll offset).
+    float viewH = bottom - top;
+    float shiftedTop = top - carScroll_;
+    float y = shiftedTop;
+
+    Vector2 mouse = GetMousePosition();
+    Rectangle viewport = Rectangle{ 0.0f, top, (float)w, viewH };
+    if (CheckCollisionPointRec(mouse, viewport)) {
+        float wheel = GetMouseWheelMove();
+        if (wheel != 0.0f) carScroll_ -= wheel * 40.0f;
+    }
+
+    BeginScissorMode(0, (int)top, w, (int)viewH);
 
     const cardb::CarSpec &spec = cardb::Roster()[selectedCar_];
     DrawText(spec.name, (int)x, (int)y, 28, RAYWHITE);
@@ -666,7 +684,7 @@ void Menu::SettingsCar(float top, int w)
         o.useMph = !o.useMph;
         optionsDirty_ = true;
     }
-    y += 54.0f;
+    y += 44.0f;
 
     RowLabel("World", x, y);
     // Cycling here only changes the setting -- the circuit, fences and
@@ -677,7 +695,7 @@ void Menu::SettingsCar(float top, int w)
         worldStyle_ = (terrain::Style)((worldStyle_ + 1) % terrain::STYLE_COUNT);
     }
     DrawText("Applies next time you press Drive.", (int)x, (int)y + 44, 14, Fade(RAYWHITE, 0.55f));
-    y += 72.0f;
+    y += 60.0f;
 
     RowLabel("Graphics", x, y);
     if (ButtonAt(Rectangle{ x + 380.0f, y, 160.0f, 40.0f }, o.ultraGraphics ? "ULTRA" : "LOW", 18)) {
@@ -689,6 +707,15 @@ void Menu::SettingsCar(float top, int w)
     DrawText("Garage -- real meshes, 5-25x the triangle cost of the rest.",
              (int)x, (int)y + 62, 14, Fade(RAYWHITE, 0.55f));
     y += 76.0f;
+
+    RowLabel("Quality", x, y);
+    if (ButtonAt(Rectangle{ x + 380.0f, y, 160.0f, 40.0f }, o.highQuality ? "HIGH" : "LOW", 18)) {
+        o.highQuality = !o.highQuality;
+        optionsDirty_ = true;
+    }
+    DrawText("Low: fewer trees/rocks, shorter draw distance. Applies on Drive.",
+             (int)x, (int)y + 44, 14, Fade(RAYWHITE, 0.55f));
+    y += 58.0f;
 
     // Writes to HKEY_CURRENT_USER\Software\Classes (no admin rights
     // needed) -- still a real system-settings change, so it only ever
@@ -721,6 +748,23 @@ void Menu::SettingsCar(float top, int w)
     }
     DrawText("Enables minimap click-to-teleport (breaks lap timing on purpose).",
              (int)x, (int)y + 44, 14, Fade(RAYWHITE, 0.55f));
+    y += 58.0f; // admin row's own trailing description line, same clearance as the others
+
+    EndScissorMode();
+
+    float contentHeight = y - shiftedTop; // translation-invariant -- same number regardless of carScroll_
+    float maxScroll = fmaxf(0.0f, contentHeight - viewH);
+    carScroll_ = Clamp(carScroll_, 0.0f, maxScroll);
+
+    if (maxScroll > 0.0f) {
+        DrawText("scroll for more", w / 2 - MeasureText("scroll for more", 14) / 2, (int)(bottom - 2.0f), 14,
+                 Fade(RAYWHITE, 0.5f));
+        float barX = w * 0.5f + 300.0f;
+        DrawRectangleRec(Rectangle{ barX, top, 6.0f, viewH }, Fade(RAYWHITE, 0.15f));
+        float thumbH = fmaxf(20.0f, viewH * (viewH / contentHeight));
+        float thumbY = top + (viewH - thumbH) * (carScroll_ / maxScroll);
+        DrawRectangleRec(Rectangle{ barX, thumbY, 6.0f, thumbH }, Fade(RAYWHITE, 0.5f));
+    }
 }
 
 void Menu::SettingsGear(const input::Input &input, float top, int w)

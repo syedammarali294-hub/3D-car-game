@@ -53,7 +53,7 @@ struct Rng {
 
 } // namespace
 
-void World::Load(Shader shader)
+void World::Load(Shader shader, float densityScale)
 {
     models_.reserve(MODEL_COUNT);
     for (int i = 0; i < MODEL_COUNT; i++) {
@@ -70,8 +70,9 @@ void World::Load(Shader shader)
     // scattered across dunes. (A real desert prop set -- cacti, dead
     // scrub -- is a separate ask; see TODO.md.)
     const bool desert = (terrain::GetStyle() == terrain::STYLE_DESERT);
+    const int propTarget = (int)(PROP_TARGET * Clamp(densityScale, 0.1f, 1.0f));
 
-    for (int i = 0; i < PROP_TARGET; i++) {
+    for (int i = 0; i < propTarget; i++) {
         if (desert && rng.Next() < 0.6f) continue; // thin the field out
         float x = rng.Range(-half, half);
         float z = rng.Range(-half, half);
