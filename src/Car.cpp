@@ -2,6 +2,7 @@
 
 #include "AiTraffic.hpp"
 #include "CarBody.hpp"
+#include "Cones.hpp"
 #include "Gearbox.hpp"
 #include "Settings.hpp"
 #include "SkidMarks.hpp"
@@ -113,7 +114,7 @@ void Car::RespawnNearestRoad()
 }
 
 void Car::Update(float dt, const input::Input &input, const world::World &world, const fence::Fence &fences,
-                 const traffic::AiTraffic *aiTraffic)
+                 const traffic::AiTraffic *aiTraffic, const cones::Cones *cones)
 {
     const cardb::CarSpec &spec = cardb::Roster()[carIndex_];
 
@@ -353,6 +354,10 @@ void Car::Update(float dt, const input::Input &input, const world::World &world,
     blocked = fences.ResolveCollisions(position_, carRadius) || blocked;
     blocked = tooSteep || blocked;
     if (aiTraffic) blocked = aiTraffic->ResolveCollisions(position_, carRadius) || blocked;
+    // Cones give a soft push + hit count (see Cones::ResolveCollisions),
+    // never block outright -- `blocked` here only feeds the collision
+    // thump sound/JustHitObstacle below, not whether the car can move.
+    if (cones) blocked = cones->ResolveCollisions(position_, carRadius) || blocked;
 
     // Lake wall: a soft push back toward shore once well below the surface,
     // rather than letting the car drive clean across the lake bed. Shallow

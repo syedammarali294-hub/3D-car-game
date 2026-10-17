@@ -1,8 +1,16 @@
-1.8.0
+1.9.0
 
 Build date: 2026-10-17
 
 ## Changelog
+
+### 1.9.0 - 2026-10-17
+- Added: Slalom mode (new mode-select button) -- cones placed alternating
+  left/right along any track's centreline, soft collision + hit counter,
+  HUD shows hits/total and elapsed time.
+- Added: procedural desert cactus (trunk + two arms, `MeshBuilder`-built,
+  no downloaded asset needed). Desert maps no longer scatter temperate
+  trees across dunes.
 
 ### 1.8.0 - 2026-10-17
 - Added: Quality preset (Settings > Car) -- Low cuts prop density to 45%

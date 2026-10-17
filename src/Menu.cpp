@@ -283,25 +283,37 @@ void Menu::TickModeSelect(int w, int h)
         DrawText(exportMessage_.c_str(), (int)(cx + 360.0f), 166, 13, Fade(RAYWHITE, 0.6f));
     }
 
-    float y1 = 220.0f;
-    if (ButtonAt(Rectangle{ cx, y1, 340.0f, 70.0f }, "FREE DRIVE", 26)) {
+    float y1 = 212.0f;
+    if (ButtonAt(Rectangle{ cx, y1, 340.0f, 62.0f }, "FREE DRIVE", 24)) {
         trafficMode_ = false;
+        slalomMode_ = false;
         screen_ = SCREEN_PLAYING;
     }
     DrawText("The circuit to yourself -- explore and lap freely.",
-             w / 2 - MeasureText("The circuit to yourself -- explore and lap freely.", 14) / 2,
-             (int)(y1 + 78.0f), 14, Fade(RAYWHITE, 0.6f));
+             w / 2 - MeasureText("The circuit to yourself -- explore and lap freely.", 13) / 2,
+             (int)(y1 + 68.0f), 13, Fade(RAYWHITE, 0.6f));
 
-    float y2 = y1 + 120.0f;
-    if (ButtonAt(Rectangle{ cx, y2, 340.0f, 70.0f }, "TRAFFIC MODE", 26)) {
+    float y2 = y1 + 102.0f;
+    if (ButtonAt(Rectangle{ cx, y2, 340.0f, 62.0f }, "TRAFFIC MODE", 24)) {
         trafficMode_ = true;
+        slalomMode_ = false;
         screen_ = SCREEN_PLAYING;
     }
     DrawText("Same circuit, shared with AI traffic -- weave through it.",
-             w / 2 - MeasureText("Same circuit, shared with AI traffic -- weave through it.", 14) / 2,
-             (int)(y2 + 78.0f), 14, Fade(RAYWHITE, 0.6f));
+             w / 2 - MeasureText("Same circuit, shared with AI traffic -- weave through it.", 13) / 2,
+             (int)(y2 + 68.0f), 13, Fade(RAYWHITE, 0.6f));
 
-    if (ButtonAt(Rectangle{ w * 0.5f - 90.0f, y2 + 130.0f, 180.0f, 46.0f }, "BACK", 20)) {
+    float y3 = y2 + 102.0f;
+    if (ButtonAt(Rectangle{ cx, y3, 340.0f, 62.0f }, "SLALOM", 24)) {
+        trafficMode_ = false;
+        slalomMode_ = true;
+        screen_ = SCREEN_PLAYING;
+    }
+    DrawText("Cones alternating left/right along the circuit -- weave clean.",
+             w / 2 - MeasureText("Cones alternating left/right along the circuit -- weave clean.", 13) / 2,
+             (int)(y3 + 68.0f), 13, Fade(RAYWHITE, 0.6f));
+
+    if (ButtonAt(Rectangle{ w * 0.5f - 90.0f, y3 + 110.0f, 180.0f, 44.0f }, "BACK", 20)) {
         screen_ = SCREEN_MAIN;
     }
 

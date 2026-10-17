@@ -31,6 +31,7 @@ add_executable(CarGame3D
     src/Car.cpp
     src/CarBody.cpp
     src/CarDatabase.cpp
+    src/Cones.cpp
     src/Console.cpp
     src/Engine.cpp
     src/Fence.cpp

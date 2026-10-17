@@ -11,6 +11,7 @@
 #include "Car.hpp"
 #include "CarDatabase.hpp"
 #include "Config.hpp"
+#include "Cones.hpp"
 #include "Console.hpp"
 #include "Engine.hpp"
 #include "Fence.hpp"
@@ -216,8 +217,14 @@ void DrawHud(car::Car &player, const cam::GameCamera &camera, int visibleProps,
              bool showStats, const input::Input &input, int lapCount, float lapTime, float bestLap,
              int nextCheckpoint, int checkpointCount, bool lapInvalid,
              float hintTimer, float driftPopupTimer, float driftPopupScore, const traffic::AiTraffic *aiTraffic,
-             bool consoleOpen = false)
+             bool consoleOpen = false, const cones::Cones *coneField = nullptr)
 {
+    if (coneField) {
+        const char *txt = TextFormat("SLALOM  %d/%d cones hit  %.1fs", coneField->HitsThisRun(),
+                                     coneField->TotalCones(), lapTime);
+        int tw = MeasureText(txt, 20);
+        DrawText(txt, config::SCREEN_WIDTH / 2 - tw / 2, 24, 20, Color{ 235, 160, 90, 255 });
+    }
     // Shows direction rather than hiding it: a flipped sign while coasting
     // backwards used to read as a plain, still-positive speed.
     bool reversing = player.IsReversing();
@@ -442,6 +449,12 @@ int main(int argc, char **argv)
     bool trafficLoaded = false;
     constexpr int TRAFFIC_CAR_COUNT = 8;
 
+    // Slalom mode: cones placed along whichever track is active (see
+    // Cones.hpp) -- same load-only-while-selected lifecycle as traffic
+    // mode above, and mutually exclusive with it (Menu enforces that).
+    cones::Cones coneField;
+    bool coneFieldLoaded = false;
+
     cam::GameCamera camera;
 
     // Admin-only: free-fly spectator camera + dev console, same gating as
@@ -633,6 +646,15 @@ int main(int argc, char **argv)
                 trafficLoaded = false;
             }
 
+            bool wantCones = ui.IsSlalomMode();
+            if (wantCones && (!coneFieldLoaded || trackOrWorldChanged)) {
+                coneField.Load(); // reads the already-rebuilt road::Centreline()
+                coneFieldLoaded = true;
+            } else if (!wantCones && coneFieldLoaded) {
+                coneField.Unload();
+                coneFieldLoaded = false;
+            }
+
             // Admin-mode debug utilities (see Settings.hpp for why these are
             // gated -- same reasoning as the minimap teleport above: they'd
             // undermine normal play if left always-on). All suppressed while
@@ -720,7 +742,8 @@ int main(int argc, char **argv)
                 if (spectating) {
                     flycam.Update(dt, input);
                 } else {
-                    player.Update(dt, input, scenery, fences, trafficLoaded ? &aiTraffic : nullptr);
+                    player.Update(dt, input, scenery, fences, trafficLoaded ? &aiTraffic : nullptr,
+                                 coneFieldLoaded ? &coneField : nullptr);
                     camera.Update(player, input, dt);
                 }
             }
@@ -987,6 +1010,7 @@ int main(int argc, char **argv)
                         scenery.Draw(viewPos, EffectiveDrawDistance(), viewFwd, activeCam.fovy, aspect);
                     }
                     if (trafficLoaded) aiTraffic.Draw();
+                    if (coneFieldLoaded) coneField.Draw();
                     player.Draw();
 
                     // Ghost of the best lap -- interpolated to the current
@@ -1016,7 +1040,7 @@ int main(int argc, char **argv)
                         DrawHud(player, camera, scenery.GetVisibleCount(), showStats, input, lapCount, lapTime, bestLap,
                                nextCheckpoint, CHECKPOINT_COUNT, lapInvalid,
                                hintTimer, lastDriftPopupTimer, lastDriftPopupScore, trafficLoaded ? &aiTraffic : nullptr,
-                               devConsole.IsOpen());
+                               devConsole.IsOpen(), coneFieldLoaded ? &coneField : nullptr);
                         DrawFirstDriveHint(input, hintTimer, config::SCREEN_WIDTH, config::SCREEN_HEIGHT);
                     } else {
                         DrawText("SPECTATING", 24, 24, 26, Color{ 120, 220, 255, 255 });
@@ -1067,6 +1091,7 @@ int main(int argc, char **argv)
     }
 
     if (trafficLoaded) aiTraffic.Unload();
+    if (coneFieldLoaded) coneField.Unload();
     engineSound.Unload();
     audio::Shutdown();
 

@@ -41,6 +41,7 @@ public:
     track::TrackId SelectedTrack() const { return (customMapIndex_ >= 0) ? track::TRACK_CUSTOM : selectedTrack_; }
     bool IsLive() const { return screen_ == SCREEN_PLAYING; }
     bool IsTrafficMode() const { return trafficMode_; }
+    bool IsSlalomMode() const { return slalomMode_; }
     Screen CurrentScreen() const { return screen_; }
 
     // main.cpp renders the selected car into this each frame the garage is
@@ -83,6 +84,7 @@ private:
     bool customMapsScanned_ = false; // ListMapFiles() is a directory read -- do it once, not every frame
     int customMapIndex_ = -1;
     bool trafficMode_ = false;
+    bool slalomMode_ = false;
 
     float previewAngle_ = 0.4f;
     bool previewDragging_ = false;

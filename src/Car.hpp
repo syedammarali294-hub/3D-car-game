@@ -7,6 +7,7 @@
 namespace world { class World; }
 namespace fence { class Fence; }
 namespace traffic { class AiTraffic; }
+namespace cones { class Cones; }
 
 namespace car {
 
@@ -21,7 +22,7 @@ public:
     int CarIndex() const { return carIndex_; }
     void Unload();
     void Update(float dt, const input::Input &input, const world::World &world, const fence::Fence &fences,
-               const traffic::AiTraffic *aiTraffic = nullptr);
+               const traffic::AiTraffic *aiTraffic = nullptr, const cones::Cones *cones = nullptr);
     void Draw() const;
 
     Vector3 GetPosition() const { return position_; }

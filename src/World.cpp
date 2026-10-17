@@ -1,5 +1,6 @@
 #include "World.hpp"
 
+#include "MeshBuilder.hpp"
 #include "Road.hpp"
 #include "Terrain.hpp"
 #include "raymath.h"
@@ -39,6 +40,33 @@ constexpr int REALISTIC_OAK_COUNT = 4;
 // trees, so matching prop *count* density 1:1 with the old map would
 // compound both increases at once.
 constexpr int PROP_TARGET = 4400;
+// Procedural -- not a downloaded/imported file like MODEL_FILES above, so
+// it isn't counted in MODEL_COUNT or indexed from MODEL_FILES; appended to
+// models_ right after that array loads (index == MODEL_COUNT). Same
+// reasoning the game's own car bodies/terrain already use: a saguaro-style
+// cactus (trunk + two arms) built from MeshBuilder::AddBox, for the desert
+// style's non-rock spawns, which previously fell through to temperate kit
+// trees -- visibly wrong on a desert map (see TODO.md's "Desert flora").
+constexpr int CACTUS_INDEX = MODEL_COUNT;
+
+Mesh BuildCactusMesh()
+{
+    meshbuild::MeshBuilder mb;
+    const Color CACTUS_GREEN = Color{ 60, 110, 70, 255 };
+    const Color CACTUS_GREEN_DARK = Color{ 46, 88, 56, 255 };
+
+    // Unit-scale (~1 tall) so it reads right at the same 3.5-7x scale
+    // range World::Load already applies to the temperate trees.
+    mb.AddBox(Vector3{ 0.0f, 0.5f, 0.0f }, Vector3{ 0.16f, 1.0f, 0.16f }, CACTUS_GREEN);
+    // Two arms, mirrored, each a short vertical box joined by a stub --
+    // simple enough to stay a handful of triangles, distinct enough in
+    // silhouette to read as a cactus and not a fence post from a distance.
+    for (float side : { -1.0f, 1.0f }) {
+        mb.AddBox(Vector3{ side * 0.22f, 0.62f, 0.0f }, Vector3{ 0.18f, 0.08f, 0.1f }, CACTUS_GREEN_DARK);
+        mb.AddBox(Vector3{ side * 0.30f, 0.80f, 0.0f }, Vector3{ 0.10f, 0.42f, 0.10f }, CACTUS_GREEN);
+    }
+    return mb.Build();
+}
 
 // Deterministic generator so the world is identical every run.
 struct Rng {
@@ -55,11 +83,16 @@ struct Rng {
 
 void World::Load(Shader shader, float densityScale)
 {
-    models_.reserve(MODEL_COUNT);
+    models_.reserve(MODEL_COUNT + 1);
     for (int i = 0; i < MODEL_COUNT; i++) {
         Model m = LoadModel(MODEL_FILES[i]);
         for (int j = 0; j < m.materialCount; j++) m.materials[j].shader = shader;
         models_.push_back(m);
+    }
+    {
+        Model cactus = LoadModelFromMesh(BuildCactusMesh());
+        for (int j = 0; j < cactus.materialCount; j++) cactus.materials[j].shader = shader;
+        models_.push_back(cactus); // index == CACTUS_INDEX
     }
 
     Rng rng;
@@ -93,17 +126,19 @@ void World::Load(Shader shader, float densityScale)
         bool realisticOak = (!rock && !desert && rng.Next() < 0.12f);
         int modelIndex = rock
             ? ROCK_FIRST_INDEX + (int)(rng.Next() * 2.0f) % 2
-            : realisticOak
-                ? REALISTIC_OAK_FIRST_INDEX + (int)(rng.Next() * REALISTIC_OAK_COUNT) % REALISTIC_OAK_COUNT
-                : (int)(rng.Next() * 4.0f) % 4;
+            : desert
+                ? CACTUS_INDEX // temperate trees would look wrong scattered across dunes -- see TODO.md
+                : realisticOak
+                    ? REALISTIC_OAK_FIRST_INDEX + (int)(rng.Next() * REALISTIC_OAK_COUNT) % REALISTIC_OAK_COUNT
+                    : (int)(rng.Next() * 4.0f) % 4;
 
         Prop p;
         p.position = Vector3{ x, h - 0.1f, z };
         p.rotation = rng.Range(0.0f, 360.0f);
-        p.scale = rock ? rng.Range(1.5f, 4.0f) : rng.Range(3.5f, 7.0f);
+        p.scale = rock ? rng.Range(1.5f, 4.0f) : (desert ? rng.Range(2.5f, 4.5f) : rng.Range(3.5f, 7.0f));
         p.modelIndex = modelIndex;
-        // Only trees block the car; rocks are small enough to treat as decoration.
-        p.colliderRadius = rock ? 0.0f : p.scale * 0.17f;
+        // Only trees/cacti block the car; rocks are small enough to treat as decoration.
+        p.colliderRadius = rock ? 0.0f : p.scale * (desert ? 0.1f : 0.17f);
         props_.push_back(p);
     }
 

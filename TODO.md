@@ -128,11 +128,13 @@ Status as of 2026-10-17. Rewritten to reflect what's actually true of the
 code right now — the previous version had accumulated a lot of stale
 "open" items that were already fixed in later sessions.
 
-**Genuinely still open, not quietly skipped**: real shadows/SSAO/car
-reflections/bloom (each its own session, see below), true chunk streaming,
-traffic cones/slalom mode, desert flora, LOD chains on props, and the Map
-Editor's prop/terrain-brush extensions (Phase 5 above). Nothing in this
-list has been started.
+**Genuinely still open, not quietly skipped** (as of 2026-10-17): real
+shadows/SSAO/car reflections/bloom (each its own session, see below --
+shader work that needs actual visual verification to ship safely, not
+something to rush blind), true chunk streaming, LOD chains on props, and
+the Map Editor's prop/terrain-brush extensions (Phase 5 above). Traffic
+cones/slalom mode and desert flora are now done (see below). Nothing in
+this remaining list has been started.
 
 **Target hardware: raised.** The user explicitly approved dropping the
 Intel HD 4000 low-end constraint in favor of implementing the full
@@ -254,10 +256,21 @@ frame. Not started yet:
       happens to the fixed circuit/lap-timer gameplay in a world that's no
       longer a bounded, fully-loaded map. Deliberately not attempted
       blind in one pass -- deserves its own dedicated session.
-- [ ] **Traffic cones / a slalom or time-trial mode**, reusing existing
-      prop + collision systems.
-- [ ] **Desert flora.** Needs an actual cactus/dead-scrub asset — the
-      owned Kenney Nature Kit only has temperate trees.
+- [x] **Traffic cones / slalom mode — DONE (2026-10-17).** `Cones.hpp/.cpp`:
+      cones placed alternating left/right along `road::Centreline()` (same
+      source Fence.cpp/the minimap read from, so it works on any track,
+      built-in or custom). Drawn with raylib's own `DrawCylinder`
+      (radiusTop=0) -- a real cone shape with no new mesh/shader code.
+      `ResolveCollisions` gives a soft push + hit count, never a hard
+      block (clipping a cone is a mistake to notice, not a wall). New
+      SLALOM button on the mode-select screen; HUD shows hits/total +
+      elapsed time (reuses the existing lap timer as the clock).
+- [x] **Desert flora — DONE (2026-10-17).** No downloaded cactus asset was
+      available, so one is procedural instead (`World.cpp`'s
+      `BuildCactusMesh`, same `MeshBuilder::AddBox` approach the game's
+      own car bodies/fence posts already use): a trunk + two mirrored
+      arms. Desert's non-rock spawns previously fell through to temperate
+      kit trees (visibly wrong on dunes); they use the cactus now.
 - [ ] **LOD chains on props** (2 levels + a billboard) — ~270 props are
       drawn at full detail with only hard distance culling right now.
 - [x] **Frustum (cone) culling for props**, on top of the existing distance
