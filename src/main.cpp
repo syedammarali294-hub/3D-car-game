@@ -17,6 +17,7 @@
 #include "Fence.hpp"
 #include "Input.hpp"
 #include "Lighting.hpp"
+#include "MapFile.hpp"
 #include "Menu.hpp"
 #include "Road.hpp"
 #include "Settings.hpp"
@@ -466,6 +467,18 @@ int main(int argc, char **argv)
     console::Console devConsole;
     bool spectating = false;
 
+    // In-game 3D map editor: flies on the same FlyCam as spectator mode
+    // (/gamemode editor), places road control points at the camera's
+    // current ground position. Separate state from the live track so
+    // editing doesn't touch road::Centreline()/the game's actual circuit
+    // until /savemap writes it out -- same split the standalone 2D
+    // MapEditor keeps between its own buffer and the .cgmap it writes.
+    bool mapEditing = false;
+    std::vector<Vector2> editorControl;
+    std::vector<Vector2> editorGaps;
+    int editorWorldStyle = 0;
+    std::string editorMapName = "untitled";
+
     bool showStats = true;
 
     // First-launch controls hint: shown once, the first time the car is
@@ -691,7 +704,43 @@ int main(int argc, char **argv)
                     devConsole.Log("Gamemode: spectator");
                 } else if (cmd == "/gamemode drive" || cmd == "/gamemode player" || cmd == "/gamemode survival") {
                     spectating = false;
+                    mapEditing = false;
                     devConsole.Log("Gamemode: drive");
+                } else if (cmd == "/gamemode editor" || cmd == "/gamemode edit") {
+                    if (!mapEditing) {
+                        flycam.Init(Vector3Add(player.GetPosition(), Vector3{ 0.0f, 20.0f, 0.0f }),
+                                    player.GetHeading());
+                        mapEditing = true;
+                        spectating = false; // editor flies its own way, not plain spectating
+                    }
+                    devConsole.Log("Gamemode: map editor. E: place point  Backspace: undo  "
+                                   "/style  /newmap  /savemap <name>  /gamemode drive to exit");
+                } else if (cmd == "/newmap") {
+                    editorControl.clear();
+                    editorGaps.clear();
+                    editorWorldStyle = 0;
+                    editorMapName = "untitled";
+                    devConsole.Log("New map started.");
+                } else if (cmd == "/style") {
+                    editorWorldStyle = (editorWorldStyle + 1) % terrain::STYLE_COUNT;
+                    devConsole.Log(std::string("World style: ") + terrain::StyleLabel((terrain::Style)editorWorldStyle));
+                } else if (cmd.rfind("/savemap ", 0) == 0) {
+                    std::string name = cmd.substr(9);
+                    if (editorControl.size() < 4) {
+                        devConsole.Log("Need at least 4 points placed first (E to place).");
+                    } else if (name.empty()) {
+                        devConsole.Log("Usage: /savemap <name>");
+                    } else {
+                        track::TrackDef def;
+                        def.name = name.c_str();
+                        def.description = "Built in the 3D map editor";
+                        def.control = editorControl;
+                        def.fenceGaps = editorGaps;
+                        editorMapName = name;
+                        devConsole.Log(mapfile::Save(name, def, editorWorldStyle)
+                                           ? ("Saved to " + mapfile::MapsDirectory() + "\\" + name + ".cgmap")
+                                           : "Save failed.");
+                    }
                 } else if (cmd == "/respawn") {
                     player.RespawnNearestRoad();
                     devConsole.Log("Respawned onto the nearest road point.");
@@ -699,13 +748,13 @@ int main(int argc, char **argv)
                     player.RefillBoost();
                     devConsole.Log("NOS refilled.");
                 } else if (cmd == "/pos") {
-                    Vector3 p = spectating ? flycam.Get().position : player.GetPosition();
+                    Vector3 p = (spectating || mapEditing) ? flycam.Get().position : player.GetPosition();
                     devConsole.Log(TextFormat("x=%.1f y=%.1f z=%.1f", p.x, p.y, p.z));
                 } else if (cmd.rfind("/tp ", 0) == 0) {
                     float tx, ty, tz;
                     if (sscanf(cmd.c_str() + 4, "%f %f %f", &tx, &ty, &tz) == 3) {
                         Vector3 dest{ tx, ty, tz };
-                        if (spectating) {
+                        if (spectating || mapEditing) {
                             Vector3 lookDir = Vector3Subtract(flycam.Get().target, flycam.Get().position);
                             flycam.Init(dest, atan2f(lookDir.x, lookDir.z)); // keep facing the same way
                         } else {
@@ -716,7 +765,8 @@ int main(int argc, char **argv)
                         devConsole.Log("Usage: /tp <x> <y> <z>");
                     }
                 } else if (cmd == "/help") {
-                    devConsole.Log("Commands: /gamemode spectator, /gamemode drive, /respawn, /refillnos, /tp x y z, /pos, /help");
+                    devConsole.Log("Commands: /gamemode spectator|editor|drive, /respawn, /refillnos, /tp x y z, "
+                                   "/pos, /newmap, /style, /savemap <name>, /help");
                 } else {
                     devConsole.Log("Unknown command: " + cmd + " (try /help)");
                 }
@@ -739,16 +789,33 @@ int main(int argc, char **argv)
             // all; EngineSound::Update simply isn't called while spectating,
             // which is all it takes to go silent (see Engine.hpp).
             if (!devConsole.IsOpen()) {
-                if (spectating) {
+                if (spectating || mapEditing) {
                     flycam.Update(dt, input);
                 } else {
                     player.Update(dt, input, scenery, fences, trafficLoaded ? &aiTraffic : nullptr,
                                  coneFieldLoaded ? &coneField : nullptr);
                     camera.Update(player, input, dt);
                 }
+
+                // Map editor placement: E drops a control point at the
+                // camera's current ground position (XZ only -- TrackDef::
+                // control is 2D, same as the standalone 2D editor and the
+                // 3 built-in tracks), Backspace undoes the last one. Both
+                // no-op outside editor mode so they don't fight the car's
+                // own Backspace-to-respawn binding.
+                if (mapEditing) {
+                    if (IsKeyPressed(KEY_E)) {
+                        Vector3 p = flycam.Get().position;
+                        editorControl.push_back(Vector2{ p.x, p.z });
+                        devConsole.Log(TextFormat("Point %d placed at %.0f, %.0f", (int)editorControl.size(), p.x, p.z));
+                    }
+                    if (IsKeyPressed(KEY_BACKSPACE) && !editorControl.empty()) {
+                        editorControl.pop_back();
+                    }
+                }
             }
 
-            if (!spectating) {
+            if (!spectating && !mapEditing) {
                 const cardb::CarSpec &curSpec = cardb::Roster()[ui.SelectedCar()];
                 float speedFactor = fabsf(player.GetSpeed()) / curSpec.maxSpeed;
                 bool slip = input.Down(input::ACTION_HANDBRAKE) && fabsf(player.GetSpeed()) > 5.0f;
@@ -908,7 +975,7 @@ int main(int argc, char **argv)
                                splashes.end());
             }
 
-            Vector3 viewPos = spectating ? flycam.Get().position : camera.Get().position;
+            Vector3 viewPos = (spectating || mapEditing) ? flycam.Get().position : camera.Get().position;
             sceneShader.UpdateView(viewPos);
             terrainShader.UpdateView(viewPos);
             lake.Update((float)GetTime(), viewPos);
@@ -919,7 +986,7 @@ int main(int argc, char **argv)
         // spectating. Every render-time camera.Get() below reads this
         // instead so spectator mode doesn't need its own copy of the
         // render block.
-        const Camera3D &activeCam = spectating ? flycam.Get() : camera.Get();
+        const Camera3D &activeCam = (spectating || mapEditing) ? flycam.Get() : camera.Get();
 
         // Garage preview: rendered to its own off-screen target before the
         // real frame starts, then handed to the menu as a texture to draw
@@ -1033,10 +1100,44 @@ int main(int argc, char **argv)
                     for (const Splash &s : splashes) {
                         DrawSphere(s.pos, 0.12f * s.life, Fade(Color{ 220, 235, 245, 255 }, s.life));
                     }
+
+                    // Map editor: each placed point as a pole (visible from
+                    // a distance while flying), numbered, connected by a
+                    // straight-line preview -- same placement-aid-not-final-
+                    // shape approach the standalone 2D editor's default view
+                    // uses; the real curve is whatever Road.cpp builds from
+                    // these same points once the saved .cgmap is actually
+                    // driven.
+                    if (mapEditing) {
+                        int n = (int)editorControl.size();
+                        for (int i = 0; i < n; i++) {
+                            Vector3 base = Vector3{ editorControl[i].x, terrain::HeightAt(editorControl[i].x, editorControl[i].y), editorControl[i].y };
+                            Vector3 top = Vector3Add(base, Vector3{ 0.0f, 12.0f, 0.0f });
+                            DrawCylinderEx(base, top, 0.4f, 0.4f, 6, Color{ 255, 200, 60, 255 });
+                            DrawSphere(top, 1.1f, Color{ 255, 90, 90, 255 });
+                            if (n > 1) {
+                                Vector3 nextBase = Vector3{ editorControl[(i + 1) % n].x,
+                                                            terrain::HeightAt(editorControl[(i + 1) % n].x, editorControl[(i + 1) % n].y),
+                                                            editorControl[(i + 1) % n].y };
+                                DrawLine3D(Vector3Add(base, Vector3{ 0, 1.0f, 0 }), Vector3Add(nextBase, Vector3{ 0, 1.0f, 0 }),
+                                          Color{ 120, 210, 140, 220 });
+                            }
+                        }
+                    }
                 EndMode3D();
 
                 if (playing) {
-                    if (!spectating) {
+                    if (mapEditing) {
+                        DrawText("MAP EDITOR", 24, 24, 26, Color{ 255, 200, 60, 255 });
+                        DrawText("RMB: look  W/A/S/D: fly  SHIFT: up  CTRL: down  E: place point  BKSP: undo",
+                                 24, 54, 16, Fade(RAYWHITE, 0.75f));
+                        DrawText(TextFormat("%d points placed  -  world style: %s  -  console: /savemap <name>, /newmap, /style",
+                                            (int)editorControl.size(), terrain::StyleLabel((terrain::Style)editorWorldStyle)),
+                                 24, 74, 16, Fade(RAYWHITE, 0.6f));
+                        if (editorControl.size() < 4) {
+                            DrawText("Need at least 4 points before you can save.", 24, 94, 16, Color{ 255, 150, 100, 255 });
+                        }
+                    } else if (!spectating) {
                         DrawHud(player, camera, scenery.GetVisibleCount(), showStats, input, lapCount, lapTime, bestLap,
                                nextCheckpoint, CHECKPOINT_COUNT, lapInvalid,
                                hintTimer, lastDriftPopupTimer, lastDriftPopupScore, trafficLoaded ? &aiTraffic : nullptr,

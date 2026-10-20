@@ -58,6 +58,23 @@ void BuildCentreline(const std::vector<Vector2> &control)
     const int controlCount = (int)control.size();
     if (controlCount < 4) return; // Catmull-Rom needs 4 points per segment to evaluate
 
+    // Fence/World/traffic collision all work by finding the nearest sample
+    // POINT, not the nearest point on the curve -- accurate only as long as
+    // samples are close together relative to the fence's ~12-unit offset.
+    // A fixed STEPS_PER_SEGMENT was fine for the built-in tracks (short
+    // segments), but a custom map with few, widely-spaced control points
+    // (a real reported case: 4 points, ~1800 units apart on average) ended
+    // up with samples ~75 units apart -- nothing stopped the car between
+    // them. Scaling steps to the segment's actual chord length keeps
+    // samples roughly TARGET_SPACING apart regardless of control point
+    // count or spacing. STEPS_PER_SEGMENT is a floor, not a ceiling, so
+    // this can only add density versus the old fixed count, never remove
+    // it -- the built-in tracks' shorter segments mostly don't need the
+    // extra steps and barely change; it's long, sparse custom segments
+    // that actually benefit.
+    constexpr float TARGET_SPACING = 6.0f;
+    constexpr int MAX_STEPS_PER_SEGMENT = 400; // guards against a pathological/huge custom map segment
+
     std::vector<Vector2> flat;
     for (int i = 0; i < controlCount; i++) {
         Vector2 p0 = control[(i - 1 + controlCount) % controlCount];
@@ -65,8 +82,13 @@ void BuildCentreline(const std::vector<Vector2> &control)
         Vector2 p2 = control[(i + 1) % controlCount];
         Vector2 p3 = control[(i + 2) % controlCount];
 
-        for (int s = 0; s < STEPS_PER_SEGMENT; s++) {
-            flat.push_back(CentripetalCatmullRom(p0, p1, p2, p3, (float)s / (float)STEPS_PER_SEGMENT));
+        float chordLen = Vector2Distance(p1, p2);
+        int steps = (int)(chordLen / TARGET_SPACING);
+        if (steps < STEPS_PER_SEGMENT) steps = STEPS_PER_SEGMENT;
+        if (steps > MAX_STEPS_PER_SEGMENT) steps = MAX_STEPS_PER_SEGMENT;
+
+        for (int s = 0; s < steps; s++) {
+            flat.push_back(CentripetalCatmullRom(p0, p1, p2, p3, (float)s / (float)steps));
         }
     }
 

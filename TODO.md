@@ -128,13 +128,18 @@ Status as of 2026-10-17. Rewritten to reflect what's actually true of the
 code right now — the previous version had accumulated a lot of stale
 "open" items that were already fixed in later sessions.
 
-**Genuinely still open, not quietly skipped** (as of 2026-10-17): real
+**Genuinely still open, not quietly skipped** (as of 2026-10-20): real
 shadows/SSAO/car reflections/bloom (each its own session, see below --
-shader work that needs actual visual verification to ship safely, not
-something to rush blind), true chunk streaming, LOD chains on props, and
-the Map Editor's prop/terrain-brush extensions (Phase 5 above). Traffic
-cones/slalom mode and desert flora are now done (see below). Nothing in
-this remaining list has been started.
+shader work that needs actual visual verification to ship safely; one
+attempt at even the simplest of these, a vignette/tonemap pass, was caught
+mid-implementation this session because it would have dimmed the HUD --
+proof this category needs eyes-on testing, not another blind attempt),
+true chunk streaming, LOD chains on props, gap editing in the new 3D map
+editor (road shape + world style only so far), and placing
+trees/rocks/AI-cars or a terrain brush in either editor (blocked on
+`.cgmap` not holding that data yet). Traffic cones/slalom mode, desert
+flora, and a real 3D in-game map editor are now done (see below). Nothing
+in this remaining list has been started.
 
 **Target hardware: raised.** The user explicitly approved dropping the
 Intel HD 4000 low-end constraint in favor of implementing the full
@@ -232,6 +237,30 @@ frame. Not started yet:
       centreline) and `MapEditorMain.cpp` (the editor's preview curve) so
       they match exactly. This fixes it for every custom map, not just the
       one reported -- it was never map-specific, it was the parametrization.
+- [x] **Drive-through-the-road, second root cause, fixed (2026-10-20).**
+      Reported again on the same map after the curve fix above -- a
+      genuinely separate bug. Fence/World/traffic collision all work by
+      finding the single nearest CENTRELINE SAMPLE POINT, accurate only
+      when samples are close together relative to the fence's ~12-unit
+      offset. `Road.cpp` used a fixed 24 steps per control-point segment
+      regardless of that segment's real length -- fine for the built-in
+      tracks' short segments, but the reported map's 4 widely-spaced
+      points worked out to samples **~75 units apart** (measured), nearly
+      7x wider than the fence itself. Nothing meaningfully constrained the
+      car between samples that far apart. `BuildCentreline` now scales
+      steps-per-segment to the segment's actual chord length, targeting
+      ~6-unit spacing regardless of control point count/spacing (floor,
+      not ceiling -- built-in tracks only ever get denser, never sparser).
+- [x] **In-game 3D map editor, not just the 2D standalone tool
+      (2026-10-20).** `/gamemode editor` (admin console): flies on the
+      same FlyCam spectator mode already built, `E` places a road control
+      point at the camera's current ground position (drawn in 3D as a
+      numbered pole + straight-line preview between points, live, while
+      flying), Backspace undoes the last one, `/style` cycles world style,
+      `/newmap` clears, `/savemap <name>` writes the exact same .cgmap the
+      standalone 2D editor and the game's track picker both read. Scoped
+      to road shape + world style, same as the 2D editor -- no gap editing
+      in the 3D tool yet (open the saved file in the 2D editor for that).
 - [x] **Water, nature, fence.** Water got a real scrolling ripple-texture
       layer (downloaded CC BY 4.0 textures) on top of the existing
       procedural wave shader -- also fixed this session: the water plane

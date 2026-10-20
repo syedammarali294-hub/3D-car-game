@@ -1,8 +1,23 @@
-1.9.0
+2.0.0
 
-Build date: 2026-10-17
+Build date: 2026-10-20
 
 ## Changelog
+
+### 2.0.0 - 2026-10-20
+- Fixed (for real this time): "can drive through the road" on sparse
+  custom maps. The 1.7.0 fix solved curve self-intersection; this was a
+  second, separate bug -- collision checks the nearest centreline SAMPLE
+  POINT, and a fixed 24-samples-per-segment meant widely-spaced control
+  points (the reported map: 4 points, ~75 units between samples vs a
+  ~12-unit fence) left huge gaps nothing stopped the car in. Sample
+  density now scales to each segment's real length, targeting ~6 units
+  between samples regardless of map size.
+- Added: in-game 3D map editor (`/gamemode editor` in the admin console).
+  Flies the existing spectator camera, `E` places a road point at your
+  position (drawn live in 3D), Backspace undoes, `/savemap <name>` writes
+  a real .cgmap -- the same format and Maps folder the 2D standalone
+  editor and the game's own track picker use.
 
 ### 1.9.0 - 2026-10-17
 - Added: Slalom mode (new mode-select button) -- cones placed alternating
